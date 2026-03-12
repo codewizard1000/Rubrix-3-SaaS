@@ -2,76 +2,112 @@ import { createPartFromUri, GoogleGenAI } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-//  1. Analyze Rubric File Function 
-export const analyzeRubricFile = async (file, callback: (result: any, error: any) => void) => {
-    try {
-        if (!file) {
-            return callback(null, "No file provided.");
-        }
-        const uploaded = await ai.files.upload({
-            file,
-            config: { displayName: file.name },
-        });
-        let getFile = await ai.files.get({ name: uploaded.name });
-        while (getFile.state === "PROCESSING") {
-            await new Promise((resolve) => setTimeout(resolve, 5000));
-            getFile = await ai.files.get({ name: uploaded.name });
-        }
+export type GradingToughness = "5-Very Hard" | "4-Hard" | "3-Medium" | "2-Easy" | "1-Very Easy";
+export type FeedbackTone = "Formal" | "Professional and Friendly" | "Friendly";
+export type FeedbackPerson = "First" | "Second" | "Third";
 
-        if (getFile.state === "FAILED") {
-            return callback(null, "File processing failed.");
-        }
+export interface GradeGenerationOptions {
+  gradingToughness: GradingToughness;
+  feedbackTone: FeedbackTone;
+  person: FeedbackPerson;
+  savedRubricName?: string | null;
+}
 
-        // Step 3: Create the prompt
-        const content: any[] = ["what is in this rubric?"];
-        if (getFile.uri && getFile.mimeType) {
-            const filePart = createPartFromUri(getFile.uri, getFile.mimeType);
-            content.push(filePart);
-        }
-        // Step 4: Ask Gemini for rubric summary
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: content,
-        });
-
-        const summary = response.text?.trim();
-        callback(summary, null);
-    } catch (error) {
-        console.error("Error analyzing rubric:", error);
-        callback(null, error);
-    }
-};
-
-// Interface for graded example
 export interface GradedExample {
   fileName: string;
   content: string;
 }
 
-export const gradeDocumentAI = async (
-  documentText,
-  rubricSummary,
-  userCriteria,
-  examples,
+export const analyzeRubricFile = async (
+  file: File,
   callback: (result: any, error: any) => void
 ) => {
   try {
-    // Build the examples section for the prompt
+    if (!file) {
+      return callback(null, "No file provided.");
+    }
+
+    const uploaded = await ai.files.upload({
+      file,
+      config: { displayName: file.name },
+    });
+
+    let getFile = await ai.files.get({ name: uploaded.name });
+    while (getFile.state === "PROCESSING") {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      getFile = await ai.files.get({ name: uploaded.name });
+    }
+
+    if (getFile.state === "FAILED") {
+      return callback(null, "File processing failed.");
+    }
+
+    const content: any[] = ["Summarize rubric criteria, levels, and weighting from this grading rubric."];
+    if (getFile.uri && getFile.mimeType) {
+      const filePart = createPartFromUri(getFile.uri, getFile.mimeType);
+      content.push(filePart);
+    }
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: content,
+    });
+
+    callback(response.text?.trim(), null);
+  } catch (error) {
+    console.error("Error analyzing rubric:", error);
+    callback(null, error);
+  }
+};
+
+export const analyzeRubricText = async (text: string, callback: (result: any, error: any) => void) => {
+  try {
+    if (!text || text.trim().length === 0) {
+      return callback(null, "No rubric text provided.");
+    }
+
+    const prompt = `
+You are analyzing a grading rubric provided as text.
+Extract and summarize the key criteria, grading levels, and point values.
+
+Rubric Text:
+${text}
+
+Provide a concise and direct summary of the grading standards.
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
+
+    callback(response.text?.trim(), null);
+  } catch (error) {
+    console.error("Error analyzing rubric text:", error);
+    callback(null, error);
+  }
+};
+
+export const gradeDocumentAI = async (
+  documentText: string,
+  rubricSummary: string | null,
+  userCriteria: string,
+  examples: GradedExample[] | null,
+  options: GradeGenerationOptions,
+  callback: (result: any, error: any) => void
+) => {
+  try {
     let examplesSection = "";
     if (examples && examples.length > 0) {
       examplesSection = `
 ## GRADED EXAMPLES (Few-Shot Learning)
 
-The following are previously graded papers for the SAME assignment type. Analyze the grading style, comment patterns, and point deductions the instructor uses. Apply similar standards to the new document.
-
-IMPORTANT: Pay close attention to:
-- The overall grade assigned and what merit level it represents
-- Specific feedback comments and their tone/style
-- Patterns in what the instructor values or penalizes
-- How the instructor phrases constructive criticism
+These papers were graded by the same instructor.
+Match their grading strictness, feedback structure, and deduction style.
 
 ---
 `;
+
       examples.forEach((example, index) => {
         examplesSection += `
 ### Example ${index + 1}: ${example.fileName}
@@ -84,11 +120,25 @@ ${example.content}
     }
 
     const prompt = `
-You are an academic grading assistant that adapts to individual instructor styles.
+You are an academic grading assistant that adapts to instructor style.
 
-Your task:
-- Evaluate the given student's document based on the rubric and/or manual instructor criteria.
-- ${examples && examples.length > 0 ? "IMPORTANT: Use the provided graded examples to understand the instructor's grading style, comment patterns, and standards. Match their approach closely." : "Use academic grading principles and professional tone."}
+Grading configuration:
+- Toughness: ${options.gradingToughness}
+- Feedback tone: ${options.feedbackTone}
+- Feedback person perspective: ${options.person}
+- Selected saved rubric name: ${options.savedRubricName || "None"}
+
+Interpretation guidance for toughness:
+- 5-Very Hard: strict deductions and high standard threshold.
+- 4-Hard: firm but fair deductions.
+- 3-Medium: balanced grading.
+- 2-Easy: lenient grading.
+- 1-Very Easy: very lenient and encouragement-focused.
+
+Person guidance:
+- First: comments should use first-person instructor voice (e.g. "I noticed...").
+- Second: comments should address student directly (e.g. "You should...").
+- Third: comments should use objective third-person phrasing.
 
 Inputs:
 Rubric Summary (if available):
@@ -103,33 +153,31 @@ Student Document to Grade:
 ${documentText}
 
 Output Instructions:
-You must return the grading result **strictly** in this JSON structure (no extra text, no commentary outside JSON):
+Return valid JSON only, with this exact structure:
 
 {
   "grade_summary": {
-    "overall_grade": "A, B, C, D, F or numeric (0–100)",
+    "overall_grade": "A, B, C, D, F or numeric (0-100)",
     "total_score": "<if numeric grading used>",
-    "general_feedback": "A concise overall paragraph of feedback (max 120 words)."
+    "general_feedback": "Concise paragraph (max 120 words)."
   },
   "criteria_feedback": [
     {
-      "criterion": "<Criterion name or category>",
-      "grade": "<A, B, C, D, F >",
-      "score": "<points or qualitative grade>",
-      "comment": "<Short feedback on this specific criterion>"
+      "criterion": "<criterion>",
+      "grade": "<A, B, C, D, F>",
+      "score": "<points or qualitative score>",
+      "comment": "<constructive feedback under 50 words>"
     }
   ]
 }
 
 Rules:
-1. Be concise and factual — avoid repetition or vague praise.
-2. Each comment should be constructive, under 50 words.
-3. Keep JSON valid and syntactically correct.
-4. If rubric or manual criteria are missing, infer reasonable grading criteria (e.g., Clarity, Grammar, Argument Strength, Structure).
-5. ${examples && examples.length > 0 ? "Match the instructor's comment style and grading strictness shown in the examples." : "Use a professional, encouraging tone."}
-6. DO NOT include markdown, explanations, or any text outside JSON.
-
-Now, generate the grading result based on these instructions.
+1. Keep comments clear, specific, and non-repetitive.
+2. Enforce the toughness setting consistently.
+3. Tone and phrasing must match selected tone/person settings.
+4. If rubric and criteria are missing, infer criteria such as Clarity, Grammar, Structure, Argument.
+5. Do not include markdown or non-JSON text.
+6. If examples are present, align with instructor style from examples.
 `;
 
     const response = await ai.models.generateContent({
@@ -137,22 +185,19 @@ Now, generate the grading result based on these instructions.
       contents: [{ role: "user", parts: [{ text: prompt }] }],
     });
 
-     let gradeText = response.text?.trim() || "";
-    let parsedResult = null;
+    const gradeText = response.text?.trim() || "";
 
     try {
       const jsonMatch = gradeText.match(/```json([\s\S]*?)```/);
       const jsonString = jsonMatch ? jsonMatch[1].trim() : gradeText;
-
-      parsedResult = JSON.parse(jsonString);
+      const parsedResult = JSON.parse(jsonString);
+      callback(parsedResult, null);
     } catch (parseError) {
-      console.warn("⚠️ JSON parsing failed, returning raw text:", parseError);
-      return callback(null, "Invalid JSON format in AI response. Raw text: " + gradeText);
+      console.warn("JSON parsing failed for grading response", parseError);
+      callback(null, "Invalid JSON format in AI response.");
     }
-
-    callback(parsedResult, null);
   } catch (error) {
-    console.error("❌ Error during grading:", error);
+    console.error("Error during grading:", error);
     callback(null, error);
   }
 };

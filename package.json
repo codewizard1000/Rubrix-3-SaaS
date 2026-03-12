@@ -1,9 +1,10 @@
 {
-  "name": "office-addin-taskpane-react",
-  "version": "0.0.1",
+  "name": "rubrix-3-saas",
+  "version": "3.0.0",
+  "description": "Rubrix 3-SaaS Word add-in for AI-powered comments, grading, and detector workflows.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/OfficeDev/Office-Addin-TaskPane-React.git"
+    "url": "https://github.com/codewizard1000/Rubrix-3-SaaS.git"
   },
   "license": "MIT",
   "config": {

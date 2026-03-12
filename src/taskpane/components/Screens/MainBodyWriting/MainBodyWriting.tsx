@@ -242,7 +242,7 @@ export default function AIToolsMenu() {
         <Toolbar sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Avatar
             src={require("../../../../../assets/Main.png")}
-            alt="Rubrix Logo"
+            alt="Rubrix 3-SaaS Logo"
             sx={{ width: 32, height: 32, backgroundColor: "transparent" }}
           />
           <Typography
@@ -254,9 +254,7 @@ export default function AIToolsMenu() {
               letterSpacing: 0.5,
               fontFamily: "Poppins, sans-serif",
             }}
-          >
-            Rubrix
-          </Typography>
+          >Rubrix 3-SaaS</Typography>
         </Toolbar>
       </AppBar>
       <Toolbar />

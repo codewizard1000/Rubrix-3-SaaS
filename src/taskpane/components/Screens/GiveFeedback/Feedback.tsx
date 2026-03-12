@@ -15,6 +15,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CommentIcon from "@mui/icons-material/Comment";
 import GradeIcon from "@mui/icons-material/Grade";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
 import { useNavigate } from "react-router-dom";
 import { getDocumentText } from "../../../Utils/documentUtils";
 import Toast from "../../Toast/ToastMessage";
@@ -22,25 +23,30 @@ import Loader from "../../loader/Loader";
 import { CommentAI } from "../../../Services/commentAi";
 import AiCommentsDisplay from "./AiCommentsDisplay";
 import GradeDocumentUI from "./GradeDocument";
+import AiDetectorDisplay from "./AiDetectorDisplay";
+import { AiDetectorResult, detectAiWriting } from "../../../Services/aiDetector";
 
 export default function GiveFeedback() {
   const navigate = useNavigate();
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [info, setInfo] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [aiComments, setAiComments] = useState([]);
+  const [aiComments, setAiComments] = useState<any[]>([]);
   const [showGrading, setShowGrading] = useState(false);
+  const [detectorResult, setDetectorResult] = useState<AiDetectorResult | null>(null);
   const [inlineChecked, setInlineChecked] = useState(true);
   const [otherChecked, setOtherChecked] = useState(false);
   const [otherComment, setOtherComment] = useState("");
 
   const handleAiCommentsClick = async () => {
     setLoading(true);
+    setInfo(null);
+    setError(null);
     try {
-      const Documenttext = await getDocumentText();
-      if (!Documenttext) {
-        setInfo("your document is empty please write something to get comments");
+      const documentText = await getDocumentText();
+      if (!documentText) {
+        setInfo("Your document is empty. Please add content to generate comments.");
         return;
       }
 
@@ -50,21 +56,49 @@ export default function GiveFeedback() {
         otherText: otherChecked ? otherComment.trim() : "",
       };
 
-      await CommentAI(Documenttext, feedbackOptions, async (res, err) => {
+      await CommentAI(documentText, feedbackOptions, async (res, err) => {
         if (res) {
           setAiComments(res);
         }
-        if (err) console.log("OpenAI Error:", err);
+
+        if (err) {
+          console.error("AI comment error:", err);
+          setError("Failed to generate AI comments. Please retry.");
+        }
       });
-      setLoading(false);
-    } catch (error) {
-      console.error("Error in AI Comments click:", error);
+    } catch (commentError) {
+      console.error("Error while generating comments", commentError);
+      setError("Unexpected error while generating AI comments.");
     } finally {
       setLoading(false);
     }
   };
 
-  function Backbutton() {
+  const handleAiDetectorClick = async () => {
+    setLoading(true);
+    setInfo(null);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const documentText = await getDocumentText();
+      if (!documentText) {
+        setInfo("Your document is empty. Please add content before running AI detector.");
+        return;
+      }
+
+      const result = await detectAiWriting(documentText);
+      setDetectorResult(result);
+      setSuccess("AI detector completed 3 analysis passes.");
+    } catch (detectorError) {
+      console.error("AI detector error", detectorError);
+      setError("AI detector failed. Check API key configuration and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  function backButton() {
     navigate("/");
   }
 
@@ -81,7 +115,7 @@ export default function GiveFeedback() {
         <Toolbar sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Avatar
             src={require("../../../../../assets/Main.png")}
-            alt="Rubrix Logo"
+            alt="Rubrix 3-SaaS Logo"
             sx={{
               width: 32,
               height: 32,
@@ -98,7 +132,7 @@ export default function GiveFeedback() {
               fontFamily: "Poppins, sans-serif",
             }}
           >
-            Rubrix
+            Rubrix 3-SaaS
           </Typography>
         </Toolbar>
       </AppBar>
@@ -107,16 +141,19 @@ export default function GiveFeedback() {
       <Box sx={{ mt: 4, p: 2 }}>
         {showGrading ? (
           <GradeDocumentUI onBack={() => setShowGrading(false)} />
-        ) : aiComments.length > 0 ? (
-          <AiCommentsDisplay
-            comments={aiComments}
-            onAllCommentsCleared={() => setAiComments([])}
+        ) : detectorResult ? (
+          <AiDetectorDisplay
+            result={detectorResult}
+            onBack={() => setDetectorResult(null)}
+            onRunAgain={handleAiDetectorClick}
           />
+        ) : aiComments.length > 0 ? (
+          <AiCommentsDisplay comments={aiComments} onAllCommentsCleared={() => setAiComments([])} />
         ) : (
           <>
             <Tooltip title="Back" arrow>
               <IconButton
-                onClick={Backbutton}
+                onClick={backButton}
                 size="small"
                 sx={{
                   position: "fixed",
@@ -159,8 +196,7 @@ export default function GiveFeedback() {
                 fontSize: { xs: "0.8rem", sm: "0.9rem" },
               }}
             >
-              Review and refine student writing using AI-powered comments and grading
-              tools.
+              Review and refine student writing using AI comments, grading, and AI-written passage detection.
             </Typography>
 
             <Box
@@ -177,7 +213,6 @@ export default function GiveFeedback() {
                 maxWidth: "100%",
               }}
             >
-              {/* --- Paper 1: AI Comments --- */}
               <Paper
                 sx={{
                   width: { xs: "80%", sm: "70%", md: "60%" },
@@ -209,19 +244,11 @@ export default function GiveFeedback() {
                   <CommentIcon sx={{ fontSize: 24 }} />
                 </Box>
 
-                <Typography
-                  variant="subtitle1"
-                  fontWeight={700}
-                  sx={{
-                    fontSize: { xs: "0.9rem", sm: "0.95rem" },
-                  }}
-                >
+                <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: { xs: "0.9rem", sm: "0.95rem" } }}>
                   AI Comments
                 </Typography>
 
-                {/* Checkboxes Section */}
                 <Box>
-                  {/* First Checkbox */}
                   <Box sx={{ display: "flex", mb: 1 }}>
                     <Checkbox
                       checked={inlineChecked}
@@ -235,7 +262,7 @@ export default function GiveFeedback() {
                     />
                     <Typography
                       variant="body2"
-                       sx={{
+                      sx={{
                         mt: 0.6,
                         opacity: 0.9,
                         lineHeight: 1.4,
@@ -247,7 +274,6 @@ export default function GiveFeedback() {
                     </Typography>
                   </Box>
 
-                  {/* Second Checkbox */}
                   <Box sx={{ display: "flex", mb: 1 }}>
                     <Checkbox
                       checked={otherChecked}
@@ -273,7 +299,6 @@ export default function GiveFeedback() {
                     </Typography>
                   </Box>
 
-                  {/* Text Field */}
                   {otherChecked && (
                     <TextField
                       fullWidth
@@ -289,7 +314,6 @@ export default function GiveFeedback() {
                     />
                   )}
 
-                  {/* Generate Button */}
                   <Button
                     variant="contained"
                     onClick={handleAiCommentsClick}
@@ -311,7 +335,6 @@ export default function GiveFeedback() {
                 </Box>
               </Paper>
 
-              {/* --- Paper 2: AI Grade Paper --- */}
               <Paper
                 onClick={() => setShowGrading(true)}
                 sx={{
@@ -344,13 +367,7 @@ export default function GiveFeedback() {
                   <GradeIcon sx={{ fontSize: 24 }} />
                 </Box>
 
-                <Typography
-                  variant="subtitle1"
-                  fontWeight={700}
-                  sx={{
-                    fontSize: { xs: "0.9rem", sm: "0.95rem" },
-                  }}
-                >
+                <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: { xs: "0.9rem", sm: "0.95rem" } }}>
                   AI Grade Paper
                 </Typography>
 
@@ -364,6 +381,55 @@ export default function GiveFeedback() {
                   }}
                 >
                   Upload or describe standards to get structured grading.
+                </Typography>
+              </Paper>
+
+              <Paper
+                onClick={handleAiDetectorClick}
+                sx={{
+                  width: { xs: "80%", sm: "70%", md: "60%" },
+                  p: 2.2,
+                  borderRadius: 3,
+                  background: "linear-gradient(135deg, #0f172a, #334155)",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.25s ease",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 16px rgba(0,0,0,0.25)",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    mb: 1.2,
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    p: 1,
+                    borderRadius: "50%",
+                  }}
+                >
+                  <SmartToyIcon sx={{ fontSize: 24 }} />
+                </Box>
+
+                <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: { xs: "0.9rem", sm: "0.95rem" } }}>
+                  AI Detector
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mt: 0.6,
+                    opacity: 0.9,
+                    lineHeight: 1.4,
+                    fontSize: { xs: "0.75rem", sm: "0.8rem" },
+                  }}
+                >
+                  Run 3 passes and highlight passages likely AI-written.
                 </Typography>
               </Paper>
             </Box>

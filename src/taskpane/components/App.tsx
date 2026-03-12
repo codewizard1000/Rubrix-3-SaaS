@@ -1,27 +1,34 @@
 import * as React from "react";
-import TeacherToolsGrid from "./Screens/Main";
-import CreateSection from "./Screens/Creates/Create";
-import GiveFeedbackUI from "./Screens/GiveFeedback/Feedback";
-import ReferenceCheckerPanel from "./Screens/Referencehecker/RefranceCheck";
-import ChangeLevelPanel from "./Screens/ChangeLevel/ChangeLevel";
 import Routting from "./Screens/Routting/Routting";
+import Loader from "./loader/Loader";
+import AuthGate from "./Auth/AuthGate";
+import AccountMenu from "./Auth/AccountMenu";
+import { AuthProvider, useAuth } from "../context/AuthContext";
 
+const AppShell: React.FC = () => {
+  const { loading, user } = useAuth();
 
+  if (loading) {
+    return <Loader />;
+  }
 
-const App: React.FC = () => {
-
+  if (!user) {
+    return <AuthGate />;
+  }
 
   return (
     <>
-
+      <AccountMenu />
       <Routting />
-      {/* <GradingUi /> */}
-      {/* <TeacherToolsGrid /> */}
-      {/* <CreateSection /> */}
-      {/* <GiveFeedbackUI /> */}
-      {/* <ReferenceCheckerPanel /> */}
-      {/* <ChangeLevelPanel /> */}
     </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 };
 

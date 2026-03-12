@@ -8,7 +8,7 @@ const Dotenv = require("dotenv-webpack");
 
 
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://rubrix3.vercel.app/"; // Production deployment on Vercel
+const urlProd = "https://rubrix-3-saas.vercel.app/"; // Production deployment on Vercel
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();

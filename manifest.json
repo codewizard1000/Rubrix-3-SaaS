@@ -4,18 +4,18 @@
     "manifestVersion": "1.17",
     "version": "1.0.0",
     "name": {
-      "short": "Contoso Task Pane Add-in",
-      "full": "Contoso Task Pane Add-in"
+      "short": "Rubrix 3-SaaS",
+      "full": "Rubrix 3-SaaS"
     },
     "description": {
-      "short": "A template to get started.",
-      "full": "This is the template to get started."
+      "short": "Rubrix 3-SaaS productivity add-in.",
+      "full": "Rubrix 3-SaaS Word add-in for AI feedback workflows."
     },
     "developer": {
-      "name": "Contoso",
-      "websiteUrl": "https://www.contoso.com",
-      "privacyUrl": "https://www.contoso.com/privacy",
-      "termsOfUseUrl": "https://www.contoso.com/servicesagreement"
+      "name": "Rubrix 3-SaaS",
+      "websiteUrl": "https://rubrix-3-saas.vercel.app",
+      "privacyUrl": "https://rubrix-3-saas.vercel.app/privacy",
+      "termsOfUseUrl": "https://rubrix-3-saas.vercel.app/servicesagreement"
     },
     "icons": {
       "outline": "assets/outline.png",
@@ -36,7 +36,7 @@
         ]
       }
     },
-    "validDomains": ["contoso.com"],
+    "validDomains": ["rubrix-3-saas.vercel.app"],
     "extensions": [
       {
         "requirements": {
@@ -94,7 +94,7 @@
                 "groups": [
                   {
                     "id": "msgComposeGroup",
-                    "label": "Contoso Add-in",
+                    "label": "Rubrix 3-SaaS Add-in",
                     "icons": [
                       { "size": 16, "url": "https://localhost:3000/assets/icon-16.png" },
                       { "size": 32, "url": "https://localhost:3000/assets/icon-32.png" },

@@ -199,76 +199,6 @@ const summaryHTML = `
   }
 };
 
-export const insertReferenceReportHTML = async (referenceReport) => {
-  await Word.run(async (context) => {
-    const body = context.document.body;
-
-    // === Build HTML Content ===
-    let html = `
-      <div style="font-family:Arial, sans-serif; color:#0f172a; margin-top:20px;">
-        <h2 style="color:#1e3a8a; border-bottom:2px solid #3b82f6; padding-bottom:4px;">
-          📘 Reference Checker Report
-        </h2>
-
-        <h3 style="margin-top:10px; color:#111827;">Summary</h3>
-        <ul style="font-size:13px; line-height:1.5; list-style-type:circle;">
-          <li><strong>Total In-Text Citations:</strong> ${referenceReport.summary.total_in_text_citations}</li>
-          <li><strong>Total Reference List Entries:</strong> ${referenceReport.summary.total_reference_list_entries}</li>
-          <li><strong>Missing References:</strong> ${referenceReport.summary.missing_references}</li>
-          <li><strong>Extra References:</strong> ${referenceReport.summary.extra_references}</li>
-          <li><strong>Invalid / Unverified:</strong> ${referenceReport.summary.invalid_or_unverified}</li>
-          <li><strong>Formatting Issues:</strong> ${referenceReport.summary.formatting_issues}</li>
-        </ul>
-    `;
-
-    // === Issue Sections ===
-    const issueSections = [
-      { key: "not_found_online", title: "🔍 References That Cannot Be Found Online" },
-      { key: "unmatched_in_text", title: "📑 Citations Missing in Reference List" },
-      { key: "unmatched_reference_list", title: "📘 Uncited References in Reference List" },
-      { key: "formatting_issues", title: "⚙️ Formatting or Style Issues" },
-      { key: "verified_references", title: "✅ Verified & Properly Formatted References" },
-    ];
-
-    issueSections.forEach((section) => {
-      const items = referenceReport.issues?.[section.key] || [];
-      if (items.length > 0) {
-        html += `
-          <h3 style="margin-top:14px; color:#111827;">${section.title}</h3>
-          <ul style="font-size:13px; line-height:1.6; margin-left:16px;">
-            ${items
-              .map(
-                (i) => `
-              <li>
-                <strong>${i.reference || i.citation}:</strong> ${i.details}
-              </li>`
-              )
-              .join("")}
-          </ul>
-        `;
-      }
-    });
-
-    // === AI Summary Report ===
-    html += `
-        <h3 style="margin-top:16px; color:#111827;">Summary Report</h3>
-        <p style="font-size:13px; color:#374151; line-height:1.6;">
-          ${referenceReport.ai_summary_report}
-        </p>
-
-        <p><br/></p> <!-- Blank line at the end -->
-      </div>
-    `;
-        body.insertParagraph("", Word.InsertLocation.end);
-
-
-    // === Insert HTML at End of Document ===
-    body.insertHtml(html, Word.InsertLocation.end);
-
-    await context.sync();
-  });
-};
-
 export const addTrackingModeForEveryOne = async () => {
     await Word.run(async (context) => {
         const document: Word.Document = context.document;
@@ -525,7 +455,7 @@ export function generateSyllabusHTML(data) {
 
     <hr style="border: none; border-top: 1px solid #cbd5e1; margin-top: 25px;" />
     <p style="text-align: center; font-size: 12px; color: #94a3b8;">
-      © Rubrix AI – Auto-Generated Syllabus
+      © Rubrix 3-SaaS AI - Auto-Generated Syllabus
     </p>
 
   </div>
@@ -623,7 +553,7 @@ export function generateLessonPlanHTML(data) {
     <!-- 🔹 Footer -->
     <hr style="border: none; border-top: 1px solid #cbd5e1; margin: 20px 0;" />
     <p style="text-align: center; font-size: 12px; color: #94a3b8;">
-      © Rubrix AI – Automatically Generated Lesson Plan
+      © Rubrix 3-SaaS AI - Automatically Generated Lesson Plan
     </p>
   </div>
   `;
