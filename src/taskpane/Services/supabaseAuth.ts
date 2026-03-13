@@ -184,7 +184,53 @@ export const signOutSupabase = async (accessToken: string) => {
   }
 };
 
+const verifyOtpToken = async (tokenHash: string, type: string): Promise<SupabaseSession | null> => {
+  try {
+    const response = await fetch(`${getSupabaseUrl()}/auth/v1/verify`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({
+        token_hash: tokenHash,
+        type,
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    const session = normalizeSession(payload);
+    if (!session) {
+      return null;
+    }
+
+    if (!session.user) {
+      session.user = (await fetchSupabaseUser(session.access_token)) || undefined;
+    }
+
+    return session;
+  } catch (error) {
+    console.error("Failed to verify OTP token", error);
+    return null;
+  }
+};
+
 export const extractSessionFromUrlHash = async (): Promise<SupabaseSession | null> => {
+  const searchParams = new URLSearchParams(window.location.search);
+  const tokenHash = searchParams.get("token_hash");
+  const type = searchParams.get("type");
+
+  // New Supabase magic-link format uses token_hash + type in query params.
+  if (tokenHash && type) {
+    const verifiedSession = await verifyOtpToken(tokenHash, type);
+    const sanitizedUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, sanitizedUrl);
+    if (verifiedSession) {
+      return verifiedSession;
+    }
+  }
+
   const hash = window.location.hash;
   if (!hash || !hash.includes("access_token=")) {
     return null;
@@ -200,7 +246,7 @@ export const extractSessionFromUrlHash = async (): Promise<SupabaseSession | nul
     expires_at: Number(params.get("expires_at") || 0),
   });
 
-  const sanitizedUrl = `${window.location.pathname}${window.location.search}`;
+  const sanitizedUrl = window.location.pathname;
   window.history.replaceState({}, document.title, sanitizedUrl);
 
   if (!session) {
