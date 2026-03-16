@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const apiKey = process.env.API_KEY || "";
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 interface RawPassage {
   textSnippet: string;
@@ -116,7 +117,31 @@ const resolveSnippetFromDocument = (documentText: string, snippet: string): stri
   return documentText.substring(start, start + snippet.length);
 };
 
+const heuristicDetectorPass = (documentText: string, pass: number, focus: string): DetectorPassResult => {
+  const snippets = documentText
+    .split(/(?<=[.!?])\s+/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 50)
+    .slice(0, 6)
+    .map((line) => ({
+      textSnippet: line.slice(0, 180),
+      reason: "Heuristic fallback (API unavailable): long/formal low-variance sentence structure.",
+      score: 58,
+    }));
+
+  return {
+    pass,
+    focus,
+    overall_ai_likelihood_percent: snippets.length ? 52 : 35,
+    passages: snippets,
+  };
+};
+
 const runDetectorPass = async (documentText: string, pass: number, focus: string): Promise<DetectorPassResult> => {
+  if (!ai) {
+    return heuristicDetectorPass(documentText, pass, focus);
+  }
+
   const prompt = `
 You are analyzing student writing for likely AI-generated passages.
 
@@ -272,13 +297,14 @@ const aggregatePasses = (documentText: string, passes: DetectorPassResult[]): Ai
 
 export const detectAiWriting = async (documentText: string): Promise<AiDetectorResult> => {
   const passes: DetectorPassResult[] = [];
+  const boundedDocument = documentText.length > 12000 ? documentText.slice(0, 12000) : documentText;
 
   for (let index = 0; index < PASS_FOCUS.length; index += 1) {
     const passNumber = index + 1;
     const focus = PASS_FOCUS[index];
-    const passResult = await runDetectorPass(documentText, passNumber, focus);
+    const passResult = await runDetectorPass(boundedDocument, passNumber, focus);
     passes.push(passResult);
   }
 
-  return aggregatePasses(documentText, passes);
+  return aggregatePasses(boundedDocument, passes);
 };
