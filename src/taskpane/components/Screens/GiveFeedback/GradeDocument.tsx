@@ -194,10 +194,26 @@ export default function GradeDocumentUI({ onBack }) {
     setExtractedExamples((previous) => previous.filter((item) => item.fileName !== fileToRemove.name));
   };
 
-  const handleSaveRubric = () => {
-    const rubricContent = manualCriteria.trim() || rubricText?.trim() || "";
+  const handleSaveRubric = async () => {
+    let rubricContent = manualCriteria.trim() || rubricText?.trim() || "";
+
+    // If a file is uploaded but text extraction hasn't populated yet,
+    // derive a summary directly from the uploaded file so saving still works.
+    if (!rubricContent && rubricFile) {
+      try {
+        const summary = await getRubricSummary();
+        rubricContent = summary?.trim() || "";
+      } catch (error) {
+        console.error("Failed to summarize uploaded rubric during save", error);
+      }
+
+      if (!rubricContent) {
+        rubricContent = `Uploaded rubric file: ${rubricFile.name}`;
+      }
+    }
+
     if (!rubricContent) {
-      setInfo("Add grading standards text or upload a DOC/DOCX rubric before saving.");
+      setInfo("Add grading standards text or upload a rubric file before saving.");
       return;
     }
 
