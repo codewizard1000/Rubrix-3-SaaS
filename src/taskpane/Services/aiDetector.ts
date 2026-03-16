@@ -50,7 +50,31 @@ const cleanModelJson = (rawText: string): string => {
 
 const parsePassResult = (rawText: string, pass: number, focus: string): DetectorPassResult => {
   const cleaned = cleanModelJson(rawText);
-  const parsed = JSON.parse(cleaned);
+
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    // Try to recover if model returned extra text around JSON.
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
+      try {
+        parsed = JSON.parse(cleaned.slice(start, end + 1));
+      } catch {
+        parsed = null;
+      }
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return {
+      pass,
+      focus,
+      overall_ai_likelihood_percent: 0,
+      passages: [],
+    };
+  }
 
   const passages = Array.isArray(parsed.passages)
     ? parsed.passages
@@ -124,13 +148,23 @@ ${documentText}
 """
 `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
 
-  const rawText = response.text?.trim() || "";
-  return parsePassResult(rawText, pass, focus);
+    const rawText = response.text?.trim() || "";
+    return parsePassResult(rawText, pass, focus);
+  } catch (error) {
+    console.error(`AI detector pass ${pass} failed`, error);
+    return {
+      pass,
+      focus,
+      overall_ai_likelihood_percent: 0,
+      passages: [],
+    };
+  }
 };
 
 const aggregatePasses = (documentText: string, passes: DetectorPassResult[]): AiDetectorResult => {
