@@ -37,16 +37,13 @@ export interface AiDetectorResult {
 }
 
 const PASS_FOCUS = [
-  "Predictability and repetitive sentence construction",
-  "Uniform tone, low personal variation, and model-like transitions",
-  "Lack of natural hesitations, abrupt certainty, and synthetic flow",
+  "Predictability, repetitive syntax, and low lexical variance",
+  "Uniform tone, model-like transitions, and generic abstraction",
+  "Overconfident certainty, low narrative friction, and synthetic rhythm",
 ];
 
 const cleanModelJson = (rawText: string): string => {
-  return rawText
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
+  return rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
 };
 
 const parsePassResult = (rawText: string, pass: number, focus: string): DetectorPassResult => {
@@ -56,7 +53,6 @@ const parsePassResult = (rawText: string, pass: number, focus: string): Detector
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    // Try to recover if model returned extra text around JSON.
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     if (start !== -1 && end !== -1 && end > start) {
@@ -117,22 +113,64 @@ const resolveSnippetFromDocument = (documentText: string, snippet: string): stri
   return documentText.substring(start, start + snippet.length);
 };
 
+const splitIntoChunks = (text: string, chunkSize = 2200, overlap = 300): string[] => {
+  if (text.length <= chunkSize) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  let cursor = 0;
+  while (cursor < text.length) {
+    const end = Math.min(text.length, cursor + chunkSize);
+    chunks.push(text.slice(cursor, end));
+    if (end >= text.length) break;
+    cursor = Math.max(0, end - overlap);
+  }
+
+  return chunks;
+};
+
 const heuristicDetectorPass = (documentText: string, pass: number, focus: string): DetectorPassResult => {
-  const snippets = documentText
+  const sentences = documentText
     .split(/(?<=[.!?])\s+/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 50)
-    .slice(0, 6)
+    .filter((line) => line.length > 40);
+
+  const normalized = sentences.map((s) => s.toLowerCase());
+  const repeatedStarts = normalized.filter((s, i, arr) => {
+    const key = s.slice(0, 24);
+    return key.length > 12 && arr.findIndex((x) => x.slice(0, 24) === key) !== i;
+  });
+
+  const genericMarkers = [
+    "in conclusion",
+    "overall",
+    "furthermore",
+    "moreover",
+    "it is important to note",
+    "this demonstrates",
+    "in today's world",
+  ];
+
+  const markerHits = normalized.filter((s) => genericMarkers.some((m) => s.includes(m)));
+
+  const base = 45;
+  const repetitionBoost = Math.min(20, repeatedStarts.length * 4);
+  const markerBoost = Math.min(20, markerHits.length * 3);
+  const overall = Math.max(20, Math.min(90, base + repetitionBoost + markerBoost));
+
+  const snippets = sentences
+    .slice(0, 8)
     .map((line) => ({
       textSnippet: line.slice(0, 180),
-      reason: "Heuristic fallback (API unavailable): long/formal low-variance sentence structure.",
-      score: 58,
+      reason: "Heuristic fallback: repetitive/generic sentence patterns.",
+      score: Math.max(40, Math.min(85, overall + 8)),
     }));
 
   return {
     pass,
     focus,
-    overall_ai_likelihood_percent: snippets.length ? 52 : 35,
+    overall_ai_likelihood_percent: overall,
     passages: snippets,
   };
 };
@@ -153,7 +191,7 @@ Rules:
 2. Keep each snippet <= 180 characters.
 3. Return only JSON with no markdown.
 4. Score each snippet 0-100 for AI-likelihood.
-5. Be conservative. Do not over-flag.
+5. Be decisive for likely AI passages; do not default to low scores.
 
 Return this exact JSON structure:
 {
@@ -183,12 +221,7 @@ ${documentText}
     return parsePassResult(rawText, pass, focus);
   } catch (error) {
     console.error(`AI detector pass ${pass} failed`, error);
-    return {
-      pass,
-      focus,
-      overall_ai_likelihood_percent: 0,
-      passages: [],
-    };
+    return heuristicDetectorPass(documentText, pass, focus);
   }
 };
 
@@ -232,8 +265,7 @@ const aggregatePasses = (documentText: string, passes: DetectorPassResult[]): Ai
   const aggregatedPassages = Array.from(snippetMap.values())
     .map((item): AggregatedPassage => {
       const avgScore = item.scores.reduce((sum, value) => sum + value, 0) / item.scores.length;
-      const confidence: "High" | "Medium" | "Low" =
-        item.votes >= 3 ? "High" : item.votes >= 2 ? "Medium" : "Low";
+      const confidence: "High" | "Medium" | "Low" = item.votes >= 3 ? "High" : item.votes >= 2 ? "Medium" : "Low";
 
       return {
         textSnippet: item.textSnippet,
@@ -243,11 +275,9 @@ const aggregatePasses = (documentText: string, passes: DetectorPassResult[]): Ai
         reason: item.reasons[0] || "Flagged by detector pass consensus.",
       };
     })
-    .filter((item) => item.votes >= 2 || item.score >= 85)
+    .filter((item) => item.votes >= 2 || item.score >= 70)
     .sort((a, b) => {
-      if (b.votes !== a.votes) {
-        return b.votes - a.votes;
-      }
+      if (b.votes !== a.votes) return b.votes - a.votes;
       return b.score - a.score;
     });
 
@@ -256,30 +286,24 @@ const aggregatePasses = (documentText: string, passes: DetectorPassResult[]): Ai
 
   const documentLength = Math.max(documentText.length, 1);
   const weightedCoverage = aggregatedPassages.reduce((sum, snippet) => {
-    const weight = (snippet.textSnippet.length / documentLength) * (snippet.score / 100) * (snippet.votes / 3);
+    const weight = (snippet.textSnippet.length / documentLength) * (snippet.score / 100) * Math.max(0.6, snippet.votes / 3);
     return sum + weight;
   }, 0);
 
-  const coveragePercent = Math.min(100, weightedCoverage * 100);
-  const overallPercentage = Number(Math.min(100, passAverage * 0.65 + coveragePercent * 0.35).toFixed(1));
+  const coveragePercent = Math.min(100, weightedCoverage * 130);
+  const overallPercentage = Number(Math.min(100, passAverage * 0.45 + coveragePercent * 0.55).toFixed(1));
 
-  const averageVotes =
-    aggregatedPassages.reduce((sum, snippet) => sum + snippet.votes, 0) / Math.max(1, aggregatedPassages.length);
+  const averageVotes = aggregatedPassages.reduce((sum, snippet) => sum + snippet.votes, 0) / Math.max(1, aggregatedPassages.length);
 
-  let confidenceNote =
-    "Low detector agreement across passes. Treat this as a screening signal, not final proof.";
-
-  if (averageVotes >= 2.5 && aggregatedPassages.length > 0) {
-    confidenceNote =
-      "High cross-pass agreement. Flagged passages are likely AI-assisted and should be reviewed manually.";
-  } else if (averageVotes >= 2) {
-    confidenceNote =
-      "Moderate agreement across passes. Review highlighted passages before making a final judgment.";
+  let confidenceNote = "Low detector agreement. Treat this as a screening signal and review manually.";
+  if (overallPercentage >= 70 || (averageVotes >= 2.3 && aggregatedPassages.length > 0)) {
+    confidenceNote = "High detector agreement. Likely AI-assisted writing; review highlighted passages first.";
+  } else if (overallPercentage >= 45 || averageVotes >= 1.8) {
+    confidenceNote = "Moderate detector agreement. Mixed/partial AI indicators found; manual verification recommended.";
   }
 
   if (aggregatedPassages.length === 0) {
-    confidenceNote =
-      "No strong consensus passages were found across the 3 detector passes. Manual review is still recommended.";
+    confidenceNote = "No strong consensus passages were found across detector passes. Manual review is still recommended.";
   }
 
   return {
@@ -296,14 +320,32 @@ const aggregatePasses = (documentText: string, passes: DetectorPassResult[]): Ai
 };
 
 export const detectAiWriting = async (documentText: string): Promise<AiDetectorResult> => {
+  const boundedDocument = documentText.length > 16000 ? documentText.slice(0, 16000) : documentText;
+  const chunks = splitIntoChunks(boundedDocument);
   const passes: DetectorPassResult[] = [];
-  const boundedDocument = documentText.length > 12000 ? documentText.slice(0, 12000) : documentText;
 
   for (let index = 0; index < PASS_FOCUS.length; index += 1) {
     const passNumber = index + 1;
     const focus = PASS_FOCUS[index];
-    const passResult = await runDetectorPass(boundedDocument, passNumber, focus);
-    passes.push(passResult);
+
+    const chunkResults: DetectorPassResult[] = [];
+    for (const chunk of chunks) {
+      const result = await runDetectorPass(chunk, passNumber, focus);
+      chunkResults.push(result);
+    }
+
+    const mergedOverall =
+      chunkResults.reduce((sum, result) => sum + result.overall_ai_likelihood_percent, 0) /
+      Math.max(1, chunkResults.length);
+
+    const mergedPassages = chunkResults.flatMap((result) => result.passages);
+
+    passes.push({
+      pass: passNumber,
+      focus,
+      overall_ai_likelihood_percent: Number(mergedOverall.toFixed(1)),
+      passages: mergedPassages,
+    });
   }
 
   return aggregatePasses(boundedDocument, passes);
