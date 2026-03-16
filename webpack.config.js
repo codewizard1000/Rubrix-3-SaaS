@@ -95,7 +95,9 @@ module.exports = async (env, options) => {
       new webpack.ProvidePlugin({
         Promise: ["es6-promise", "Promise"],
       }),
-      new Dotenv(),
+      new Dotenv({
+        systemvars: true,
+      }),
     ],
     devServer: {
       hot: true,
