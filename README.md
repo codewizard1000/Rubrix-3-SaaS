@@ -4,7 +4,8 @@ Rubrix 3-SaaS is a Microsoft Word add-in for educators with AI-assisted feedback
 
 - AI Comments
 - AI Grade Paper (with saved rubrics + grading controls)
-- AI Detector (3-pass AI-likelihood analysis with highlighted passages)
+- AI Detector (Winston AI-content detection with highlighted passages)
+- Plagiarism Detector (Winston source matching)
 
 ## Product Changes Included
 
@@ -21,7 +22,8 @@ Rubrix 3-SaaS is a Microsoft Word add-in for educators with AI-assisted feedback
 
 - Office Add-in (Word task pane)
 - React + Material UI
-- Gemini API (`@google/genai`) for grading/comments/detector
+- Gemini API (`@google/genai`) for grading/comments
+- Winston API (via Vercel serverless routes) for AI detection/plagiarism
 - Supabase Auth (REST integration)
 - Stripe checkout integration scaffold (env-driven)
 
@@ -57,7 +59,8 @@ Create `.env` with:
 
 | Variable | Required | Description |
 |---|---|---|
-| `API_KEY` | Yes | Gemini API key for AI features |
+| `API_KEY` | Yes | Gemini API key for AI comments and AI Grade Paper |
+| `WINSTON_API_KEY` | Yes | Winston API key used by `/api/winston/ai-content-detection` and `/api/winston/plagiarism` |
 | `SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable (anon) key |
 | `SUPABASE_AUTH_REDIRECT_URL` | Recommended | OAuth/magic-link redirect URL (usually your deployed `taskpane.html`) |

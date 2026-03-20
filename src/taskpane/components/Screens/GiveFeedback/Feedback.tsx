@@ -16,6 +16,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CommentIcon from "@mui/icons-material/Comment";
 import GradeIcon from "@mui/icons-material/Grade";
 import SmartToyIcon from "@mui/icons-material/SmartToy";
+import PlagiarismIcon from "@mui/icons-material/Plagiarism";
 import { useNavigate } from "react-router-dom";
 import { getDocumentText } from "../../../Utils/documentUtils";
 import Toast from "../../Toast/ToastMessage";
@@ -25,6 +26,8 @@ import AiCommentsDisplay from "./AiCommentsDisplay";
 import GradeDocumentUI from "./GradeDocument";
 import AiDetectorDisplay from "./AiDetectorDisplay";
 import { AiDetectorResult, detectAiWriting } from "../../../Services/aiDetector";
+import PlagiarismDetectorDisplay from "./PlagiarismDetectorDisplay";
+import { PlagiarismDetectorResult, detectPlagiarism } from "../../../Services/plagiarismDetector";
 
 export default function GiveFeedback() {
   const navigate = useNavigate();
@@ -35,6 +38,7 @@ export default function GiveFeedback() {
   const [aiComments, setAiComments] = useState<any[]>([]);
   const [showGrading, setShowGrading] = useState(false);
   const [detectorResult, setDetectorResult] = useState<AiDetectorResult | null>(null);
+  const [plagiarismResult, setPlagiarismResult] = useState<PlagiarismDetectorResult | null>(null);
   const [inlineChecked, setInlineChecked] = useState(true);
   const [otherChecked, setOtherChecked] = useState(false);
   const [otherComment, setOtherComment] = useState("");
@@ -89,10 +93,39 @@ export default function GiveFeedback() {
 
       const result = await detectAiWriting(documentText);
       setDetectorResult(result);
-      setSuccess("AI detector completed 3 analysis passes.");
+      setPlagiarismResult(null);
+      setSuccess("AI detector completed.");
     } catch (detectorError) {
       console.error("AI detector error", detectorError);
-      setError("AI detector failed. Check API key configuration and try again.");
+      const message = detectorError instanceof Error ? detectorError.message : "AI detector failed. Please try again.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePlagiarismDetectorClick = async () => {
+    setLoading(true);
+    setInfo(null);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const documentText = await getDocumentText();
+      if (!documentText) {
+        setInfo("Your document is empty. Please add content before running plagiarism detection.");
+        return;
+      }
+
+      const result = await detectPlagiarism(documentText);
+      setPlagiarismResult(result);
+      setDetectorResult(null);
+      setSuccess("Plagiarism detector completed.");
+    } catch (plagiarismError) {
+      console.error("Plagiarism detector error", plagiarismError);
+      const message =
+        plagiarismError instanceof Error ? plagiarismError.message : "Plagiarism detector failed. Please try again.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -141,6 +174,12 @@ export default function GiveFeedback() {
       <Box sx={{ mt: 4, p: 2 }}>
         {showGrading ? (
           <GradeDocumentUI onBack={() => setShowGrading(false)} />
+        ) : plagiarismResult ? (
+          <PlagiarismDetectorDisplay
+            result={plagiarismResult}
+            onBack={() => setPlagiarismResult(null)}
+            onRunAgain={handlePlagiarismDetectorClick}
+          />
         ) : detectorResult ? (
           <AiDetectorDisplay
             result={detectorResult}
@@ -196,7 +235,7 @@ export default function GiveFeedback() {
                 fontSize: { xs: "0.8rem", sm: "0.9rem" },
               }}
             >
-              Review and refine student writing using AI comments, grading, and AI-written passage detection.
+              Review and refine student writing using AI comments, grading, AI-writing detection, and plagiarism checks.
             </Typography>
 
             <Box
@@ -205,7 +244,8 @@ export default function GiveFeedback() {
                 gridTemplateColumns: {
                   xs: "1fr",
                   sm: "repeat(2, 1fr)",
-                  md: "repeat(3, 1fr)",
+                  md: "repeat(2, 1fr)",
+                  lg: "repeat(4, 1fr)",
                 },
                 gap: 2.5,
                 justifyItems: "center",
@@ -215,7 +255,7 @@ export default function GiveFeedback() {
             >
               <Paper
                 sx={{
-                  width: { xs: "80%", sm: "70%", md: "60%" },
+                  width: { xs: "80%", sm: "70%", md: "65%" },
                   p: 2.2,
                   borderRadius: 3,
                   background: "linear-gradient(135deg, #0ea5a5, #2563eb)",
@@ -338,7 +378,7 @@ export default function GiveFeedback() {
               <Paper
                 onClick={() => setShowGrading(true)}
                 sx={{
-                  width: { xs: "80%", sm: "70%", md: "60%" },
+                  width: { xs: "80%", sm: "70%", md: "65%" },
                   p: 2.2,
                   borderRadius: 3,
                   background: "linear-gradient(135deg, #7c3aed, #2563eb)",
@@ -387,7 +427,7 @@ export default function GiveFeedback() {
               <Paper
                 onClick={handleAiDetectorClick}
                 sx={{
-                  width: { xs: "80%", sm: "70%", md: "60%" },
+                  width: { xs: "80%", sm: "70%", md: "65%" },
                   p: 2.2,
                   borderRadius: 3,
                   background: "linear-gradient(135deg, #0f172a, #334155)",
@@ -429,7 +469,56 @@ export default function GiveFeedback() {
                     fontSize: { xs: "0.75rem", sm: "0.8rem" },
                   }}
                 >
-                  Run 3 passes and highlight passages likely AI-written.
+                  Run Winston AI detection and highlight likely AI-written passages.
+                </Typography>
+              </Paper>
+
+              <Paper
+                onClick={handlePlagiarismDetectorClick}
+                sx={{
+                  width: { xs: "80%", sm: "70%", md: "65%" },
+                  p: 2.2,
+                  borderRadius: 3,
+                  background: "linear-gradient(135deg, #78350f, #b45309)",
+                  color: "white",
+                  cursor: "pointer",
+                  transition: "all 0.25s ease",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 16px rgba(0,0,0,0.25)",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
+                    mb: 1.2,
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    p: 1,
+                    borderRadius: "50%",
+                  }}
+                >
+                  <PlagiarismIcon sx={{ fontSize: 24 }} />
+                </Box>
+
+                <Typography variant="subtitle1" fontWeight={700} sx={{ fontSize: { xs: "0.9rem", sm: "0.95rem" } }}>
+                  Plagiarism Detector
+                </Typography>
+
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mt: 0.6,
+                    opacity: 0.9,
+                    lineHeight: 1.4,
+                    fontSize: { xs: "0.75rem", sm: "0.8rem" },
+                  }}
+                >
+                  Run Winston plagiarism checks and review matching sources.
                 </Typography>
               </Paper>
             </Box>

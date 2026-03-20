@@ -1,19 +1,11 @@
 import React from "react";
-import {
-  Box,
-  Button,
-  Chip,
-  Divider,
-  Paper,
-  Stack,
-  Typography,
-} from "@mui/material";
+import { Box, Button, Divider, Paper, Stack, Typography } from "@mui/material";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { AggregatedPassage, AiDetectorResult } from "../../../Services/aiDetector";
+import { PlagiarismDetectorResult } from "../../../Services/plagiarismDetector";
 
-interface AiDetectorDisplayProps {
-  result: AiDetectorResult;
+interface PlagiarismDetectorDisplayProps {
+  result: PlagiarismDetectorResult;
   onBack: () => void;
   onRunAgain: () => void;
 }
@@ -21,56 +13,31 @@ interface AiDetectorDisplayProps {
 interface TextSegment {
   text: string;
   highlight: boolean;
-  passage?: AggregatedPassage;
 }
-
-const getHighlightColor = (confidence: AggregatedPassage["confidence"]): string => {
-  if (confidence === "High") {
-    return "rgba(239, 68, 68, 0.28)";
-  }
-
-  if (confidence === "Medium") {
-    return "rgba(245, 158, 11, 0.25)";
-  }
-
-  return "rgba(234, 179, 8, 0.2)";
-};
 
 const createHighlightedSegments = (
   text: string,
-  passages: AggregatedPassage[],
+  ranges: PlagiarismDetectorResult["highlightedRanges"],
   maxLength = 12000
 ): TextSegment[] => {
   const preview = text.slice(0, maxLength);
-  const ranges: Array<{ start: number; end: number; passage: AggregatedPassage }> = [];
+  const sortedRanges = [...ranges]
+    .map((range) => ({
+      start: Math.min(Math.max(0, range.start), preview.length),
+      end: Math.min(Math.max(0, range.end), preview.length),
+    }))
+    .filter((range) => range.end > range.start)
+    .sort((a, b) => a.start - b.start);
 
-  passages.forEach((passage) => {
-    const index = preview.toLowerCase().indexOf(passage.textSnippet.toLowerCase());
-    if (index !== -1) {
-      ranges.push({
-        start: index,
-        end: index + passage.textSnippet.length,
-        passage,
-      });
-    }
-  });
-
-  ranges.sort((a, b) => a.start - b.start);
-
-  const merged: Array<{ start: number; end: number; passage: AggregatedPassage }> = [];
-  ranges.forEach((range) => {
+  const merged: Array<{ start: number; end: number }> = [];
+  sortedRanges.forEach((range) => {
     const last = merged[merged.length - 1];
     if (!last || range.start >= last.end) {
       merged.push(range);
       return;
     }
 
-    if (range.passage.score > last.passage.score) {
-      last.end = Math.max(last.end, range.end);
-      last.passage = range.passage;
-    } else {
-      last.end = Math.max(last.end, range.end);
-    }
+    last.end = Math.max(last.end, range.end);
   });
 
   const segments: TextSegment[] = [];
@@ -84,7 +51,6 @@ const createHighlightedSegments = (
     segments.push({
       text: preview.slice(range.start, range.end),
       highlight: true,
-      passage: range.passage,
     });
 
     cursor = range.end;
@@ -101,10 +67,10 @@ const createHighlightedSegments = (
   return segments;
 };
 
-const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, onRunAgain }) => {
+const PlagiarismDetectorDisplay: React.FC<PlagiarismDetectorDisplayProps> = ({ result, onBack, onRunAgain }) => {
   const segments = React.useMemo(
-    () => createHighlightedSegments(result.analyzedText, result.highlightedPassages),
-    [result.analyzedText, result.highlightedPassages]
+    () => createHighlightedSegments(result.analyzedText, result.highlightedRanges),
+    [result.analyzedText, result.highlightedRanges]
   );
 
   return (
@@ -135,17 +101,17 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
           fontSize: { xs: "1.2rem", sm: "1.35rem" },
         }}
       >
-        AI Detector Results
+        Plagiarism Detector Results
       </Typography>
 
       <Typography variant="body2" sx={{ color: "#475569", textAlign: "center", mb: 2.2 }}>
-        Winston AI-content scan complete. Review highlighted passages and confidence before making a final decision.
+        Winston plagiarism scan complete. Review source matches before final decisions.
       </Typography>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2} sx={{ mb: 1.5 }}>
         <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 2, flex: 1 }}>
           <Typography variant="caption" sx={{ color: "#475569" }}>
-            Overall AI-likely percentage
+            Overall plagiarism score
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
             {result.overallPercentage}%
@@ -154,10 +120,10 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
 
         <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 2, flex: 1 }}>
           <Typography variant="caption" sx={{ color: "#475569" }}>
-            Highlighted passages
+            Matching sources
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
-            {result.highlightedPassages.length}
+            {result.sourceCount}
           </Typography>
         </Paper>
       </Stack>
@@ -169,22 +135,6 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
         <Typography variant="body2" sx={{ color: "#0f172a" }}>
           {result.confidenceNote}
         </Typography>
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 2, mb: 1.5 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.8 }}>
-          Pass breakdown
-        </Typography>
-        <Stack direction="column" spacing={0.6}>
-          {result.passBreakdown.map((pass) => (
-            <Box key={pass.pass} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2" sx={{ color: "#334155", pr: 1 }}>
-                Pass {pass.pass}: {pass.focus}
-              </Typography>
-              <Chip size="small" label={`${pass.overallPercentage}%`} />
-            </Box>
-          ))}
-        </Stack>
       </Paper>
 
       <Paper
@@ -201,7 +151,7 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
         }}
       >
         {segments.map((segment, index) => {
-          if (!segment.highlight || !segment.passage) {
+          if (!segment.highlight) {
             return <React.Fragment key={index}>{segment.text}</React.Fragment>;
           }
 
@@ -210,11 +160,10 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
               key={index}
               component="span"
               sx={{
-                backgroundColor: getHighlightColor(segment.passage.confidence),
+                backgroundColor: "rgba(245, 158, 11, 0.25)",
                 px: 0.2,
                 borderRadius: 0.5,
               }}
-              title={`${segment.passage.confidence} confidence • score ${segment.passage.score}% • ${segment.passage.reason}`}
             >
               {segment.text}
             </Box>
@@ -224,27 +173,39 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
 
       <Paper variant="outlined" sx={{ p: 1.2, borderRadius: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.8 }}>
-          Highlighted passages
+          Top matching sources
         </Typography>
 
-        {result.highlightedPassages.length === 0 && (
+        {result.sources.length === 0 && (
           <Typography variant="body2" sx={{ color: "#64748b" }}>
-            No AI-likely passages were highlighted by Winston.
+            No source matches returned by Winston.
           </Typography>
         )}
 
-        {result.highlightedPassages.map((passage, index) => (
-          <Box key={`${passage.textSnippet}-${index}`} sx={{ mb: index === result.highlightedPassages.length - 1 ? 0 : 1.1 }}>
-            <Typography variant="body2" sx={{ color: "#0f172a", fontStyle: "italic" }}>
-              "{passage.textSnippet}"
+        {result.sources.map((source, index) => (
+          <Box key={`${source.url}-${index}`} sx={{ mb: index === result.sources.length - 1 ? 0 : 1.1 }}>
+            <Typography variant="body2" sx={{ color: "#0f172a", fontWeight: 600 }}>
+              {source.title}
             </Typography>
-            <Typography variant="caption" sx={{ color: "#334155" }}>
-              Score: {passage.score}% | Votes: {passage.votes}/{result.passBreakdown.length} | Confidence: {passage.confidence}
+            {source.url ? (
+              <Typography
+                component="a"
+                href={source.url}
+                target="_blank"
+                rel="noreferrer"
+                variant="caption"
+                sx={{ color: "#2563eb", textDecoration: "none", display: "inline-block", mb: 0.3 }}
+              >
+                {source.url}
+              </Typography>
+            ) : null}
+            <Typography variant="caption" sx={{ color: "#334155", display: "block" }}>
+              Match score: {source.score}%
             </Typography>
             <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
-              {passage.reason}
+              Words: {source.plagiarizedWords} total, {source.identicalWords} identical, {source.similarWords} similar
             </Typography>
-            {index !== result.highlightedPassages.length - 1 && <Divider sx={{ mt: 0.8 }} />}
+            {index !== result.sources.length - 1 && <Divider sx={{ mt: 0.8 }} />}
           </Box>
         ))}
       </Paper>
@@ -252,4 +213,4 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
   );
 };
 
-export default AiDetectorDisplay;
+export default PlagiarismDetectorDisplay;
