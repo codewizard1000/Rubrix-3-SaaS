@@ -76,7 +76,7 @@ const getConfidence = (aiLikelihood: number): AggregatedPassage["confidence"] =>
 };
 
 const parseFailureMessage = async (response: Response): Promise<string> => {
-  const fallback = `Winston request failed with status ${response.status}.`;
+  const fallback = `AI detector request failed with status ${response.status}.`;
 
   try {
     const payload = await response.json();
@@ -100,14 +100,14 @@ const buildConfidenceNote = (overallPercentage: number, highlightedCount: number
   }
 
   if (overallPercentage >= 70) {
-    return "High AI-likelihood signal from Winston. Review highlighted passages first.";
+    return "High AI-likelihood signal from Rubrix AI Scan. Review highlighted passages first.";
   }
 
   if (overallPercentage >= 45) {
-    return "Moderate AI-likelihood signal from Winston. Use manual review to confirm.";
+    return "Moderate AI-likelihood signal from Rubrix AI Scan. Use manual review to confirm.";
   }
 
-  return "Low AI-likelihood signal from Winston. Manual verification is still recommended.";
+  return "Low AI-likelihood signal from Rubrix AI Scan. Manual verification is still recommended.";
 };
 
 export const detectAiWriting = async (documentText: string): Promise<AiDetectorResult> => {
@@ -156,7 +156,7 @@ export const detectAiWriting = async (documentText: string): Promise<AiDetectorR
         score: aiLikelihood,
         votes: 1,
         confidence: getConfidence(aiLikelihood),
-        reason: `Winston sentence score: ${sentenceHumanScore.toFixed(1)}% human-likely.`,
+        reason: `AI sentence score: ${sentenceHumanScore.toFixed(1)}% human-likely.`,
       };
     })
     .filter((item): item is AggregatedPassage => Boolean(item))
@@ -170,7 +170,7 @@ export const detectAiWriting = async (documentText: string): Promise<AiDetectorR
     passBreakdown: [
       {
         pass: 1,
-        focus: "Winston v2 AI content detection",
+        focus: "Rubrix AI content detection",
         overallPercentage: overallAiLikelihood,
       },
     ],

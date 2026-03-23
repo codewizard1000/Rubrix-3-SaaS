@@ -139,7 +139,7 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
       </Typography>
 
       <Typography variant="body2" sx={{ color: "#475569", textAlign: "center", mb: 2.2 }}>
-        Winston AI-content scan complete. Review highlighted passages and confidence before making a final decision.
+        Rubrix AI content scan complete. Review highlighted passages and confidence before making a final decision.
       </Typography>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.2} sx={{ mb: 1.5 }}>
@@ -229,7 +229,7 @@ const AiDetectorDisplay: React.FC<AiDetectorDisplayProps> = ({ result, onBack, o
 
         {result.highlightedPassages.length === 0 && (
           <Typography variant="body2" sx={{ color: "#64748b" }}>
-            No AI-likely passages were highlighted by Winston.
+            No AI-likely passages were highlighted by Rubrix AI Scan.
           </Typography>
         )}
 

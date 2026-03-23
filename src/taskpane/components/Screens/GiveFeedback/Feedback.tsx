@@ -469,7 +469,7 @@ export default function GiveFeedback() {
                     fontSize: { xs: "0.75rem", sm: "0.8rem" },
                   }}
                 >
-                  Run Winston AI detection and highlight likely AI-written passages.
+                  Run Rubrix AI content detection and highlight likely AI-written passages.
                 </Typography>
               </Paper>
 
