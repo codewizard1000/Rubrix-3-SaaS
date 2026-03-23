@@ -1,7 +1,7 @@
 {
   "name": "rubrix-3-saas",
   "version": "3.0.0",
-  "description": "Rubrix 3-SaaS Word add-in for AI-powered comments, grading, and detector workflows.",
+  "description": "Rubrix Word add-in for AI-powered comments, grading, and detector workflows.",
   "repository": {
     "type": "git",
     "url": "https://github.com/codewizard1000/Rubrix-3-SaaS.git"

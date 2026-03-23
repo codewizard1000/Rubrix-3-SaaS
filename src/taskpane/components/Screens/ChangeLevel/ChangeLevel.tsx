@@ -33,7 +33,7 @@ export default function ChangeLevelPanel() {
                 <Toolbar sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <Avatar
                         src={require("../../../../../assets/Main.png")}
-                        alt="Rubrix 3-SaaS Logo"
+                        alt="Rubrix Logo"
                         sx={{
                             width: 32,
                             height: 32,
@@ -50,7 +50,7 @@ export default function ChangeLevelPanel() {
                             fontFamily: "Poppins, sans-serif",
                         }}
                     >
-                        Rubrix 3-SaaS
+                        Rubrix
                     </Typography>
                 </Toolbar>
             </AppBar>

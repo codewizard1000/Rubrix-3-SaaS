@@ -1,6 +1,6 @@
-# Rubrix 3-SaaS
+# Rubrix
 
-Rubrix 3-SaaS is a Microsoft Word add-in for educators with AI-assisted feedback workflows:
+Rubrix is a Microsoft Word add-in for educators with AI-assisted feedback workflows:
 
 - AI Comments
 - AI Grade Paper (with saved rubrics + grading controls)
@@ -16,7 +16,7 @@ Rubrix 3-SaaS is a Microsoft Word add-in for educators with AI-assisted feedback
   - 30-day free trial, no card required to sign up
   - $0.99 monthly or $0.99 yearly auto-renew plan options
   - discount/free membership code input
-- Renamed UI/product identity to `Rubrix 3-SaaS`.
+- Renamed UI/product identity to `Rubrix`.
 
 ## Tech Stack
 

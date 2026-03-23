@@ -73,9 +73,9 @@ const AuthGate: React.FC = () => {
         }}
       >
         <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 2 }}>
-          <Avatar src={require("../../../../assets/Main.png")} alt="Rubrix 3-SaaS logo" />
+          <Avatar src={require("../../../../assets/Main.png")} alt="Rubrix logo" />
           <Box>
-            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "1rem" }}>Rubrix 3-SaaS</Typography>
+            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "1rem" }}>Rubrix</Typography>
             <Typography variant="caption" sx={{ color: "#334155" }}>
               Sign in to continue
             </Typography>

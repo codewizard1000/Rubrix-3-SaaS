@@ -123,7 +123,7 @@ export default function TeacherToolsGrid() {
         <Toolbar sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <Avatar
             src={require("../../../../assets/Main.png")}
-            alt="Rubrix 3-SaaS Logo"
+            alt="Rubrix Logo"
             sx={{
               width: 32,
               height: 32,
@@ -140,7 +140,7 @@ export default function TeacherToolsGrid() {
               fontFamily: "Poppins, sans-serif",
             }}
           >
-            Rubrix 3-SaaS
+            Rubrix
           </Typography>
         </Toolbar>
       </AppBar>
@@ -196,7 +196,7 @@ export default function TeacherToolsGrid() {
               },
             }}
           >
-            Rubrix 3-SaaS
+            Rubrix
           </Typography>
         </Box>
 
@@ -209,7 +209,7 @@ export default function TeacherToolsGrid() {
             }}
             textAlign="center"
           >
-            Empowering educators to craft meaningful learning, elevate feedback, and inspire growth with Rubrix 3-SaaS.
+            Empowering educators to craft meaningful learning, elevate feedback, and inspire growth with Rubrix.
           </Typography>
         </Box>
         <Box sx={{ p: "5px" }}>

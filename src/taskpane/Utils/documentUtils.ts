@@ -455,7 +455,7 @@ export function generateSyllabusHTML(data) {
 
     <hr style="border: none; border-top: 1px solid #cbd5e1; margin-top: 25px;" />
     <p style="text-align: center; font-size: 12px; color: #94a3b8;">
-      © Rubrix 3-SaaS AI - Auto-Generated Syllabus
+      © Rubrix AI - Auto-Generated Syllabus
     </p>
 
   </div>
@@ -553,7 +553,7 @@ export function generateLessonPlanHTML(data) {
     <!-- 🔹 Footer -->
     <hr style="border: none; border-top: 1px solid #cbd5e1; margin: 20px 0;" />
     <p style="text-align: center; font-size: 12px; color: #94a3b8;">
-      © Rubrix 3-SaaS AI - Automatically Generated Lesson Plan
+      © Rubrix AI - Automatically Generated Lesson Plan
     </p>
   </div>
   `;

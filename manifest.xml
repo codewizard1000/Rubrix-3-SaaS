@@ -2,10 +2,10 @@
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>d0a1ae21-b8b2-45a2-baa8-f1e5d7c83405</Id>
   <Version>1.1.0.0</Version>
-  <ProviderName>Rubrix 3-SaaS</ProviderName>
+  <ProviderName>Rubrix</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Rubrix 3-SaaS"/>
-  <Description DefaultValue="Rubrix 3-SaaS: AI grading, comments, detector, and educator workflows."/>
+  <DisplayName DefaultValue="Rubrix"/>
+  <Description DefaultValue="Rubrix: AI grading, comments, detector, and educator workflows."/>
   <IconUrl DefaultValue="https://rubrix-3-saas.vercel.app/assets/icon-32.png"/>
   <HighResolutionIconUrl DefaultValue="https://rubrix-3-saas.vercel.app/assets/icon-64.png"/>
   <SupportUrl DefaultValue="https://www.rubrix.ai/help"/>
@@ -72,13 +72,13 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://rubrix-3-saas.vercel.app/taskpane.html"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Get started with Rubrix 3-SaaS"/>
-        <bt:String id="CommandsGroup.Label" DefaultValue="Rubrix 3-SaaS"/>
-        <bt:String id="TaskpaneButton.Label" DefaultValue="Rubrix 3-SaaS"/>
+        <bt:String id="GetStarted.Title" DefaultValue="Get started with Rubrix"/>
+        <bt:String id="CommandsGroup.Label" DefaultValue="Rubrix"/>
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Rubrix"/>
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Your Rubrix 3-SaaS add-in loaded successfully. Go to the HOME tab and click the 'Rubrix 3-SaaS' button to get started."/>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to open Rubrix 3-SaaS"/>
+        <bt:String id="GetStarted.Description" DefaultValue="Your Rubrix add-in loaded successfully. Go to the HOME tab and click the 'Rubrix' button to get started."/>
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Click to open Rubrix"/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
