@@ -18,30 +18,78 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 import Toast from "../../Toast/ToastMessage";
 import { DocumentWriting } from "../../../Services/documentWriting";
-import { addTrackingModeForEveryOne, getDocumentText, getSelectedText, insertText, parseEditSuggestions, removeTrackingModeForEveryone, replaceInWordDocument } from "../../../Utils/documentUtils";
+import {
+  addTrackingModeForEveryOne,
+  getDocumentText,
+  getSelectedText,
+  insertText,
+  parseEditSuggestions,
+  removeTrackingModeForEveryone,
+  replaceInWordDocument,
+} from "../../../Utils/documentUtils";
 import Loader from "../../loader/Loader";
+import { useAuth } from "../../../context/AuthContext";
+import { checkUsageAccess, consumeUsage, estimateWords } from "../../../Services/billing";
 
 export default function AIToolsMenu() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [selectedTool, setSelectedTool] = useState("");
+  const [selectedTool, setSelectedTool] = useState<"" | "prompt" | "highlight">("");
   const [prompt, setPrompt] = useState("");
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [info, setInfo] = useState(null);
-  const [selectedAction, setSelectedAction] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const handleBack = () => {
-    removeTrackingModeForEveryone()
-    navigate("/");
-  }
 
-  const handleOpen = async (tool) => {
+  const runDocumentWriting = async (promptText: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      DocumentWriting(promptText, (result, writingError) => {
+        if (writingError) {
+          reject(writingError);
+          return;
+        }
+
+        resolve(String(result || ""));
+      });
+    });
+  };
+
+  const consumeWritingUsage = (source: string, words: number): boolean => {
+    if (!user?.id) {
+      setError("Login / Sign up is required before using this feature.");
+      return false;
+    }
+
+    const consumeResult = consumeUsage(user.id, "writing_assist", words, {
+      source,
+    });
+
+    if (!consumeResult.ok) {
+      setError(consumeResult.message || "Usage limit reached.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleBack = () => {
+    removeTrackingModeForEveryone();
+    navigate("/");
+  };
+
+  const handleOpen = async (tool: "prompt" | "edit" | "highlight") => {
     try {
+      if (!user?.id) {
+        setInfo("Login / Sign up is required before using Rubrix features.");
+        return;
+      }
+
       if (tool === "highlight") {
-        const getDocumenttext = await getDocumentText();
-        if (!getDocumenttext) {
-          setInfo("your document is empty. Please add content to use Highlight Actions.")
+        const documentText = await getDocumentText();
+        if (!documentText) {
+          setInfo("Your document is empty. Please add content to use Highlight Actions.");
           return;
         }
         const selectedText = await getSelectedText();
@@ -69,7 +117,25 @@ export default function AIToolsMenu() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      if (!user?.id) {
+        setError("Login / Sign up is required before using this feature.");
+        return;
+      }
+
       if (selectedTool === "prompt") {
+        const trimmedPrompt = prompt.trim();
+        if (!trimmedPrompt) {
+          setInfo("Enter a prompt before submitting.");
+          return;
+        }
+
+        const requestedWords = Math.max(1, estimateWords(trimmedPrompt));
+        const access = checkUsageAccess(user.id, "writing_assist", requestedWords);
+        if (!access.allowed) {
+          setError(access.message || "Usage limit reached.");
+          return;
+        }
+
         const academicLevel =
           localStorage.getItem("academicLevel") || "Graduate";
 
@@ -85,26 +151,22 @@ export default function AIToolsMenu() {
               - If the user’s instruction asks for a section (e.g. introduction, abstract, analysis), follow that request directly.
 
             User’s instruction:
-             "${prompt}"
+             "${trimmedPrompt}"
 
             Return only the generated academic text. Do not include explanations or metadata.`;
 
-        DocumentWriting(aiPrompt, (result, error) => {
-          setLoading(false);
-          handleClose();
-          if (error) {
-            console.error("AI Prompt Box Error:", error);
-            setError("Something went wrong while generating content.");
-          } else {
-            insertText(result);
-            setSuccess("Content inserted successfully!");
-          }
-        });
+        const result = await runDocumentWriting(aiPrompt);
+        if (!consumeWritingUsage("writing_prompt", requestedWords)) {
+          return;
+        }
+
+        insertText(result);
+        handleClose();
+        setSuccess(`Content inserted successfully. ${requestedWords.toLocaleString()} words consumed.`);
 
       } else if (selectedTool === "highlight") {
 
         if (!selectedAction) {
-          setLoading(false);
           setInfo("Please select an action before submitting.");
           return;
         }
@@ -112,6 +174,12 @@ export default function AIToolsMenu() {
         const academicLevel =
           localStorage.getItem("academicLevel") || "Graduate";
         const selectedText = await getSelectedText();
+        const selectedWords = Math.max(1, estimateWords(selectedText || ""));
+        const access = checkUsageAccess(user.id, "writing_assist", selectedWords);
+        if (!access.allowed) {
+          setError(access.message || "Usage limit reached.");
+          return;
+        }
 
         const actionInstruction = {
           "Rephrase": "Rephrase the text to improve clarity and flow.",
@@ -147,37 +215,44 @@ export default function AIToolsMenu() {
 
             Now, rewrite the text accordingly and return only the final improved version.`;
 
-        DocumentWriting(aiPrompt, (result, error) => {
-          setLoading(false);
-          handleClose();
-          if (error) {
-            console.error("AI Highlight Action Error:", error);
-            setError(error);
-          } else {
-            console.log("AI Rewritten Text:", result);
-            insertText(result);
-            setSuccess("Text rewritten successfully!");
-          }
-        });
+        const result = await runDocumentWriting(aiPrompt);
+        if (!consumeWritingUsage("writing_highlight", selectedWords)) {
+          return;
+        }
+
+        insertText(result);
+        handleClose();
+        setSuccess(`Text rewritten successfully. ${selectedWords.toLocaleString()} words consumed.`);
       }
     } catch (err) {
       console.error("Error in handleSubmit:", err);
       setError("Unexpected error while submitting your request.");
+    } finally {
       setLoading(false);
     }
   };
 
   const editSuggestionsPrecheck = async () => {
     setLoading(true);
-    await addTrackingModeForEveryOne()
+    await addTrackingModeForEveryOne();
     try {
+      if (!user?.id) {
+        setError("Login / Sign up is required before using this feature.");
+        return;
+      }
+
       const academicLevel =
         localStorage.getItem("academicLevel") || "Graduate";
 
-      const documentText = await getDocumentText()
+      const documentText = await getDocumentText();
       if (!documentText) {
-        setLoading(false);
-        setInfo("your document is empty. Please add content to get edit suggestions.")
+        setInfo("Your document is empty. Please add content to get edit suggestions.");
+        return;
+      }
+      const requestedWords = Math.max(1, estimateWords(documentText));
+      const access = checkUsageAccess(user.id, "writing_assist", requestedWords);
+      if (!access.allowed) {
+        setError(access.message || "Usage limit reached.");
         return;
       }
 
@@ -208,25 +283,25 @@ export default function AIToolsMenu() {
               }
              ]`;
 
-      await DocumentWriting(prompt, async (result, error) => {
-        if (error) {
-          console.error("AI Edit Suggestion Error:", error);
-        } else {
-          const edits = parseEditSuggestions(result);
-          if (edits.length > 0) {
-            await replaceInWordDocument(edits);
-            setSuccess("Edit suggestions applied successfully!");
-          } else {
-            setError("No valid edits found in AI response.");
-          }
+      const result = await runDocumentWriting(prompt);
+      const edits = parseEditSuggestions(result);
+      if (edits.length > 0) {
+        await replaceInWordDocument(edits);
+        if (!consumeWritingUsage("writing_edit_suggestions", requestedWords)) {
+          return;
         }
-      });
+
+        setSuccess(`Edit suggestions applied successfully. ${requestedWords.toLocaleString()} words consumed.`);
+      } else {
+        setError("No valid edits found in AI response.");
+      }
+    } catch (suggestionError) {
+      console.log("editSuggestionsPrecheck Error:", suggestionError);
+      setError("Unable to generate edit suggestions right now.");
+    } finally {
       setLoading(false);
-    } catch (error) {
-      setLoading(false);
-      console.log("editSuggestionsPrecheck Error:", error);
     }
-  }
+  };
 
   return (
     <>

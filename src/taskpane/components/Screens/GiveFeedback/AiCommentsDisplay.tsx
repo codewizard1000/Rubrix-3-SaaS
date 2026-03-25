@@ -19,12 +19,16 @@ import SaveIcon from "@mui/icons-material/Save";
 import CloseIcon from "@mui/icons-material/Close";
 import { searchDocument } from "../../../Utils/SearchTextToAddComment";
 import { redoAIComment } from "../../../Services/redoComment";
+import { useAuth } from "../../../context/AuthContext";
+import { checkUsageAccess, consumeUsage, estimateWords } from "../../../Services/billing";
 
 export default function AiCommentsDisplay({ comments = [], onAllCommentsCleared }) {
+  const { user } = useAuth();
   const [localComments, setLocalComments] = useState(comments);
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editedText, setEditedText] = useState("");
-  const [redoingIndex, setRedoingIndex] = useState(null); // ✅ Added this state
+  const [redoingIndex, setRedoingIndex] = useState<number | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (localComments.length === 0) {
@@ -74,6 +78,19 @@ export default function AiCommentsDisplay({ comments = [], onAllCommentsCleared 
     const level = localStorage.getItem("academicLevel") || "High School";
 
     try {
+      if (!user?.id) {
+        setActionError("Login / Sign up is required before using this feature.");
+        return;
+      }
+
+      const requestedWords = Math.max(1, estimateWords(item.textSnippet || item.comment || ""));
+      const access = checkUsageAccess(user.id, "comments", requestedWords);
+      if (!access.allowed) {
+        setActionError(access.message || "Usage limit reached.");
+        return;
+      }
+
+      setActionError(null);
       setRedoingIndex(index); // show spinner for this item
 
       const originalComment = item.comment;
@@ -89,6 +106,9 @@ export default function AiCommentsDisplay({ comments = [], onAllCommentsCleared 
           updated[index].comment = "Error regenerating comment.";
           setLocalComments(updated);
         } else {
+          consumeUsage(user.id, "comments", requestedWords, {
+            source: "redo_comment",
+          });
           updated[index].comment = result.comment;
           setLocalComments(updated);
           // onAction?.("redo", result);
@@ -149,6 +169,11 @@ export default function AiCommentsDisplay({ comments = [], onAllCommentsCleared 
       >
         Review and refine AI-generated feedback — accept, edit, or regenerate comments for the best writing insights.
       </Typography>
+      {actionError && (
+        <Typography variant="caption" sx={{ color: "#b91c1c", textAlign: "center" }}>
+          {actionError}
+        </Typography>
+      )}
       {localComments.map((item, index) => (
         <Paper
           key={index}

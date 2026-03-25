@@ -12,8 +12,10 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 import { createOptionsAi } from "../../../Services/createOptions";
 import Loader from "../../loader/Loader";
-import { convertQuizToHTML, convertRubricToHtml, generateDOKQuestionsHTML, generateExemplarHTML, generateLessonPlanHTML, generateProgressReportHTML, generateResourceHTML, generateSyllabusHTML, insertCreatOptionHTML, insertText } from "../../../Utils/documentUtils";
+import { convertQuizToHTML, convertRubricToHtml, generateDOKQuestionsHTML, generateExemplarHTML, generateLessonPlanHTML, generateProgressReportHTML, generateResourceHTML, generateSyllabusHTML, insertCreatOptionHTML } from "../../../Utils/documentUtils";
 import Toast from "../../Toast/ToastMessage";
+import { useAuth } from "../../../context/AuthContext";
+import { checkUsageAccess, consumeUsage, estimateWords } from "../../../Services/billing";
 
 const cardStyle = {
   p: 1.8,
@@ -172,22 +174,28 @@ Return strictly in JSON:
 
 export default function CreateSection() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState(null);
+  const { user } = useAuth();
+  const [selected, setSelected] = useState<{ title: string } | null>(null);
   const [open, setOpen] = useState(false);
-  const [formValues, setFormValues] = useState({});
+  const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [instructions, setInstructions] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const [info, setInfo] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
-  const handleSelect = (title) => {
+  const handleSelect = (title: string) => {
+    if (!user?.id) {
+      setInfo("Login / Sign up is required before using this feature.");
+      return;
+    }
+    setError(null);
     setSelected({ title });
     setFormValues({});
     setOpen(true);
   };
 
-  const handleInputChange = (name, value) => {
+  const handleInputChange = (name: string, value: string | number) => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -198,15 +206,33 @@ export default function CreateSection() {
   const handleGenerate = async () => {
     setOpen(false);
     setLoading(true);
+    if (!user?.id) {
+      setError("Login / Sign up is required before using this feature.");
+      setLoading(false);
+      return;
+    }
 
     const level = localStorage.getItem("academicLevel") || "High School";
-    const templateFn = promptTemplates[selected?.title];
+    const templateFn = selected ? promptTemplates[selected.title] : null;
     const finalPrompt = templateFn
       ? templateFn({ ...formValues, level }) + (instructions ? ` Additional instructions: ${instructions}` : "")
       : "Generate relevant content.";
+    const requestedWords = Math.max(1, estimateWords(finalPrompt));
+    const access = checkUsageAccess(user.id, "writing_assist", requestedWords);
+    if (!access.allowed) {
+      setError(access.message || "Usage limit reached.");
+      setLoading(false);
+      return;
+    }
 
     try {
       await createOptionsAi(finalPrompt, async (res, err) => {
+        if (err) {
+          console.log("OpenAI Error:", err);
+          setError("Unable to generate content right now.");
+          return;
+        }
+
         if (res) {
           if (selected?.title === "Quiz") {
             const htmlQuiz = convertQuizToHTML(res);
@@ -229,12 +255,25 @@ export default function CreateSection() {
           } else if (selected?.title === "DOK Questions") {
             const DOKQuestionsHTML = generateDOKQuestionsHTML(res);
             await insertCreatOptionHTML(DOKQuestionsHTML);
+          } else if (selected?.title === "Exemplar") {
+            const exemplarHTML = generateExemplarHTML(res);
+            await insertCreatOptionHTML(exemplarHTML);
           }
+          const consumeResult = consumeUsage(user.id, "writing_assist", requestedWords, {
+            source: "create_content",
+            createType: selected?.title || "unknown",
+          });
+          if (!consumeResult.ok) {
+            setError(consumeResult.message || "Usage limit reached.");
+            return;
+          }
+
+          setSuccess(`Generated content inserted. ${requestedWords.toLocaleString()} words consumed.`);
         }
-        if (err) console.log("OpenAI Error:", err);
       });
     } catch (error) {
       console.error("handleGenerate Error:", error);
+      setError("Unable to generate content right now.");
     } finally {
       setLoading(false);
     }

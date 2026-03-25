@@ -28,9 +28,12 @@ import AiDetectorDisplay from "./AiDetectorDisplay";
 import { AiDetectorResult, detectAiWriting } from "../../../Services/aiDetector";
 import PlagiarismDetectorDisplay from "./PlagiarismDetectorDisplay";
 import { PlagiarismDetectorResult, detectPlagiarism } from "../../../Services/plagiarismDetector";
+import { useAuth } from "../../../context/AuthContext";
+import { checkUsageAccess, consumeUsage, estimateWords } from "../../../Services/billing";
 
 export default function GiveFeedback() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -48,9 +51,20 @@ export default function GiveFeedback() {
     setInfo(null);
     setError(null);
     try {
+      if (!user?.id) {
+        setError("Login / Sign up is required before using this feature.");
+        return;
+      }
+
       const documentText = await getDocumentText();
       if (!documentText) {
         setInfo("Your document is empty. Please add content to generate comments.");
+        return;
+      }
+      const words = estimateWords(documentText);
+      const access = checkUsageAccess(user.id, "comments", words);
+      if (!access.allowed) {
+        setError(access.message || "Usage limit reached.");
         return;
       }
 
@@ -62,7 +76,11 @@ export default function GiveFeedback() {
 
       await CommentAI(documentText, feedbackOptions, async (res, err) => {
         if (res) {
+          consumeUsage(user.id, "comments", words, {
+            source: "feedback_comments",
+          });
           setAiComments(res);
+          setSuccess(`AI comments generated. ${words.toLocaleString()} words consumed.`);
         }
 
         if (err) {
@@ -85,13 +103,27 @@ export default function GiveFeedback() {
     setSuccess(null);
 
     try {
+      if (!user?.id) {
+        setError("Login / Sign up is required before using this feature.");
+        return;
+      }
+
       const documentText = await getDocumentText();
       if (!documentText) {
         setInfo("Your document is empty. Please add content before running AI detector.");
         return;
       }
+      const words = estimateWords(documentText);
+      const access = checkUsageAccess(user.id, "ai_detector", words);
+      if (!access.allowed) {
+        setError(access.message || "Usage limit reached.");
+        return;
+      }
 
       const result = await detectAiWriting(documentText);
+      consumeUsage(user.id, "ai_detector", words, {
+        source: "ai_detector",
+      });
       setDetectorResult(result);
       setPlagiarismResult(null);
       setSuccess("AI detector completed.");
@@ -111,13 +143,27 @@ export default function GiveFeedback() {
     setSuccess(null);
 
     try {
+      if (!user?.id) {
+        setError("Login / Sign up is required before using this feature.");
+        return;
+      }
+
       const documentText = await getDocumentText();
       if (!documentText) {
         setInfo("Your document is empty. Please add content before running plagiarism detection.");
         return;
       }
+      const words = estimateWords(documentText);
+      const access = checkUsageAccess(user.id, "plagiarism", words);
+      if (!access.allowed) {
+        setError(access.message || "Usage limit reached.");
+        return;
+      }
 
       const result = await detectPlagiarism(documentText);
+      consumeUsage(user.id, "plagiarism", words, {
+        source: "plagiarism_detector",
+      });
       setPlagiarismResult(result);
       setDetectorResult(null);
       setSuccess("Plagiarism detector completed.");
@@ -173,7 +219,7 @@ export default function GiveFeedback() {
 
       <Box sx={{ mt: 4, p: 2 }}>
         {showGrading ? (
-          <GradeDocumentUI onBack={() => setShowGrading(false)} />
+          <GradeDocumentUI userId={user?.id || ""} onBack={() => setShowGrading(false)} />
         ) : plagiarismResult ? (
           <PlagiarismDetectorDisplay
             result={plagiarismResult}
