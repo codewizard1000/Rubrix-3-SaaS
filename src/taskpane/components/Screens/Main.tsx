@@ -1,5 +1,5 @@
 import React from "react";
-import { Box, Typography, Avatar, Button, Tooltip, Fade } from "@mui/material";
+import { Box, Typography, Avatar, Button, Tooltip, Fade, Paper } from "@mui/material";
 import QuizIcon from "@mui/icons-material/Quiz";
 import FeedbackIcon from "@mui/icons-material/Feedback";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
@@ -8,6 +8,9 @@ import Toolbar from "@mui/material/Toolbar";
 import { useNavigate } from "react-router-dom";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import { useAuth } from "../../context/AuthContext";
+import Toast from "../Toast/ToastMessage";
+import { formatPlanName, getUsageSummary } from "../../Services/billing";
 
 type FeatureKey = "create" | "feedback" | "level";
 
@@ -48,9 +51,35 @@ const featuresBottom: FeatureCard[] = [
 
 export default function TeacherToolsGrid() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [hover, setHover] = React.useState(false);
+  const [authInfo, setAuthInfo] = React.useState<string | null>(null);
+  const [usageLine, setUsageLine] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!user?.id) {
+      setUsageLine(null);
+      return undefined;
+    }
+
+    const refresh = () => {
+      const summary = getUsageSummary(user.id);
+      setUsageLine(
+        `${formatPlanName(summary.planId)} • ${summary.monthlyBaseWordsLeft.toLocaleString()} words left this month`
+      );
+    };
+
+    refresh();
+    const timer = window.setInterval(refresh, 30_000);
+    return () => window.clearInterval(timer);
+  }, [user?.id]);
 
   const handleFeatureClick = (key: FeatureKey | "mainbody") => {
+    if (!user?.id) {
+      setAuthInfo("Login / Sign up is required before using Rubrix features.");
+      return;
+    }
+
     switch (key) {
       case "create":
         navigate("/create");
@@ -211,6 +240,32 @@ export default function TeacherToolsGrid() {
           >
             Empowering educators to craft meaningful learning, elevate feedback, and inspire growth with Rubrix.
           </Typography>
+          {!user?.id && (
+            <Typography
+              variant="caption"
+              sx={{ color: "#475569", mt: 1, textAlign: "center", display: "block", fontWeight: 600 }}
+            >
+              Explore the landing page first, then use top-right Login / Sign up to unlock tools.
+            </Typography>
+          )}
+          {usageLine && (
+            <Paper
+              variant="outlined"
+              sx={{
+                mt: 1.2,
+                py: 0.8,
+                px: 1.2,
+                borderRadius: 2,
+                textAlign: "center",
+                borderColor: "#cbd5e1",
+                backgroundColor: "#f8fafc",
+              }}
+            >
+              <Typography variant="caption" sx={{ color: "#0f172a", fontWeight: 700 }}>
+                {usageLine}
+              </Typography>
+            </Paper>
+          )}
         </Box>
         <Box sx={{ p: "5px" }}>
           <Tooltip
@@ -262,6 +317,7 @@ export default function TeacherToolsGrid() {
         <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>{featuresTop.map(renderFeatureBox)}</Box>
         <Box sx={{ display: "flex", justifyContent: "center" }}>{featuresBottom.map(renderFeatureBox)}</Box>
       </Box>
+      {authInfo && <Toast info={authInfo} onClose={() => setAuthInfo(null)} />}
     </>
   );
 }

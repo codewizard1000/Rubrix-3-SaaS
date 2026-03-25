@@ -41,6 +41,7 @@ import {
 } from "../../../Services/gradeAi";
 import Loader from "../../loader/Loader";
 import Toast from "../../Toast/ToastMessage";
+import { checkUsageAccess, consumeUsage, estimateWords } from "../../../Services/billing";
 
 interface ExampleFile {
   file: File;
@@ -94,7 +95,12 @@ const mergeRubricCriteria = (savedRubricContent: string, manualCriteria: string)
   return uniqueParts.join("\n\n");
 };
 
-export default function GradeDocumentUI({ onBack }) {
+interface GradeDocumentProps {
+  onBack: () => void;
+  userId: string;
+}
+
+export default function GradeDocumentUI({ onBack, userId }: GradeDocumentProps) {
   const [rubricFile, setRubricFile] = useState<File | null>(null);
   const [rubricText, setRubricText] = useState<string | null>(null);
   const [manualCriteria, setManualCriteria] = useState("");
@@ -289,9 +295,20 @@ export default function GradeDocumentUI({ onBack }) {
     setInfo(null);
 
     try {
+      if (!userId) {
+        setError("Login / Sign up is required before grading.");
+        return;
+      }
+
       const documentText = await getDocumentText();
       if (!documentText) {
         setInfo("Document is empty. Please write something first.");
+        return;
+      }
+      const words = estimateWords(documentText);
+      const access = checkUsageAccess(userId, "grade_paper", words);
+      if (!access.allowed) {
+        setError(access.message || "Usage limit reached.");
         return;
       }
 
@@ -319,7 +336,10 @@ export default function GradeDocumentUI({ onBack }) {
       );
 
       await insertGradeAtTop(gradingResult);
-      setSuccess("Document graded successfully.");
+      consumeUsage(userId, "grade_paper", words, {
+        source: "grade_document",
+      });
+      setSuccess(`Document graded successfully. ${words.toLocaleString()} words consumed.`);
       setRubricFile(null);
       setRubricText(null);
     } catch (gradeError) {

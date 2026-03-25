@@ -11,8 +11,6 @@ const AppShell: React.FC = () => {
     return <Loader />;
   }
 
-  // Temporary bypass: allow app usage without mandatory auth gate.
-  // Account/Billing menu still appears when a user is signed in.
   return (
     <>
       <AccountMenu />

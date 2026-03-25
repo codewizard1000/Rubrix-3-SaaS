@@ -22,6 +22,7 @@ interface AuthContextValue {
   error: string | null;
   signInWithGoogle: () => void;
   signInWithMicrosoft: () => void;
+  signInWithFacebook: () => void;
   sendMagicLink: (email: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   clearError: () => void;
@@ -124,6 +125,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     startOAuthLogin("azure");
   };
 
+  const signInWithFacebook = () => {
+    startOAuthLogin("facebook");
+  };
+
   const sendMagicLink = async (email: string) => {
     const result = await sendMagicLinkEmail(email);
     if (result.error) {
@@ -153,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error,
     signInWithGoogle,
     signInWithMicrosoft,
+    signInWithFacebook,
     sendMagicLink,
     signOut,
     clearError,

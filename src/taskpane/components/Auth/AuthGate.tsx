@@ -14,13 +14,18 @@ import {
 } from "@mui/material";
 import GoogleIcon from "@mui/icons-material/Google";
 import MicrosoftIcon from "@mui/icons-material/Window";
+import FacebookIcon from "@mui/icons-material/Facebook";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import { useAuth } from "../../context/AuthContext";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const AuthGate: React.FC = () => {
-  const { signInWithGoogle, signInWithMicrosoft, sendMagicLink, error, clearError } = useAuth();
+interface AuthGateProps {
+  embedded?: boolean;
+}
+
+const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
+  const { signInWithGoogle, signInWithMicrosoft, signInWithFacebook, sendMagicLink, error, clearError } = useAuth();
   const [email, setEmail] = React.useState("");
   const [emailInfo, setEmailInfo] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -45,6 +50,109 @@ const AuthGate: React.FC = () => {
     setEmailInfo("Magic link sent. Open your email and return to this add-in.");
   };
 
+  const card = (
+    <Paper
+      elevation={embedded ? 0 : 8}
+      sx={{
+        width: "100%",
+        maxWidth: 520,
+        borderRadius: 3,
+        p: 3,
+        border: "1px solid #cbd5e1",
+      }}
+    >
+      <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 2 }}>
+        <Avatar src={require("../../../../assets/Main.png")} alt="Rubrix logo" />
+        <Box>
+          <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "1rem" }}>Rubrix</Typography>
+          <Typography variant="caption" sx={{ color: "#334155" }}>
+            Sign in to unlock AI actions
+          </Typography>
+        </Box>
+      </Stack>
+
+      <Typography variant="body2" sx={{ color: "#334155", mb: 2 }}>
+        Landing stays visible before login. Feature actions are blocked until authentication.
+      </Typography>
+
+      <Stack spacing={1.2}>
+        <Button
+          variant="contained"
+          startIcon={<GoogleIcon />}
+          onClick={signInWithGoogle}
+          sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
+        >
+          Continue with Google
+        </Button>
+
+        <Button
+          variant="outlined"
+          startIcon={<MicrosoftIcon />}
+          onClick={signInWithMicrosoft}
+          sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
+        >
+          Continue with Microsoft
+        </Button>
+
+        <Button
+          variant="outlined"
+          startIcon={<FacebookIcon />}
+          onClick={signInWithFacebook}
+          sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
+        >
+          Continue with Facebook
+        </Button>
+      </Stack>
+
+      <Divider sx={{ my: 2.2 }}>or</Divider>
+
+      <Stack spacing={1.2}>
+        <TextField
+          label="Email"
+          fullWidth
+          size="small"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="name@school.edu"
+        />
+        <Button
+          variant="outlined"
+          startIcon={submitting ? <CircularProgress size={16} /> : <MailOutlineIcon />}
+          onClick={handleSendMagicLink}
+          disabled={submitting}
+          sx={{ textTransform: "none", borderRadius: 2, py: 1.05 }}
+        >
+          Send email sign-in link
+        </Button>
+      </Stack>
+
+      {emailInfo && (
+        <Alert severity={emailInfo.includes("valid") ? "warning" : "info"} sx={{ mt: 2 }}>
+          {emailInfo}
+        </Alert>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Box sx={{ mt: 2.2 }}>
+        <Typography variant="caption" sx={{ color: "#475569", display: "block" }}>
+          Trial: all features unlocked for the first 10,000 words.
+        </Typography>
+        <Typography variant="caption" sx={{ color: "#475569", display: "block", mt: 0.3 }}>
+          Subscriptions and top-ups are handled through Stripe checkout.
+        </Typography>
+      </Box>
+    </Paper>
+  );
+
+  if (embedded) {
+    return card;
+  }
+
   return (
     <Box
       sx={{
@@ -58,97 +166,11 @@ const AuthGate: React.FC = () => {
       }}
     >
       <Chip
-        label="Login"
+        label="Login / Sign up"
         color="primary"
         sx={{ position: "fixed", top: 10, right: 12, zIndex: 1300, fontWeight: 600 }}
       />
-      <Paper
-        elevation={8}
-        sx={{
-          width: "100%",
-          maxWidth: 520,
-          borderRadius: 3,
-          p: 3,
-          border: "1px solid #cbd5e1",
-        }}
-      >
-        <Stack direction="row" spacing={1.2} alignItems="center" sx={{ mb: 2 }}>
-          <Avatar src={require("../../../../assets/Main.png")} alt="Rubrix logo" />
-          <Box>
-            <Typography sx={{ fontWeight: 700, color: "#0f172a", fontSize: "1rem" }}>Rubrix</Typography>
-            <Typography variant="caption" sx={{ color: "#334155" }}>
-              Sign in to continue
-            </Typography>
-          </Box>
-        </Stack>
-
-        <Typography variant="body2" sx={{ color: "#334155", mb: 2 }}>
-          App usage is locked until authentication. Sessions stay signed in unless you manually sign out.
-        </Typography>
-
-        <Stack spacing={1.2}>
-          <Button
-            variant="contained"
-            startIcon={<GoogleIcon />}
-            onClick={signInWithGoogle}
-            sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
-          >
-            Continue with Google
-          </Button>
-
-          <Button
-            variant="outlined"
-            startIcon={<MicrosoftIcon />}
-            onClick={signInWithMicrosoft}
-            sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
-          >
-            Continue with Microsoft
-          </Button>
-        </Stack>
-
-        <Divider sx={{ my: 2.2 }}>or</Divider>
-
-        <Stack spacing={1.2}>
-          <TextField
-            label="Email"
-            fullWidth
-            size="small"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@school.edu"
-          />
-          <Button
-            variant="outlined"
-            startIcon={submitting ? <CircularProgress size={16} /> : <MailOutlineIcon />}
-            onClick={handleSendMagicLink}
-            disabled={submitting}
-            sx={{ textTransform: "none", borderRadius: 2, py: 1.05 }}
-          >
-            Send email sign-in link
-          </Button>
-        </Stack>
-
-        {emailInfo && (
-          <Alert severity={emailInfo.includes("valid") ? "warning" : "info"} sx={{ mt: 2 }}>
-            {emailInfo}
-          </Alert>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Box sx={{ mt: 2.2 }}>
-          <Typography variant="caption" sx={{ color: "#475569", display: "block" }}>
-            Billing policy: 30-day free trial with no credit card required for sign-up.
-          </Typography>
-          <Typography variant="caption" sx={{ color: "#475569", display: "block", mt: 0.3 }}>
-            After trial, plans are $0.99 monthly or $0.99 yearly, auto-renew via Stripe.
-          </Typography>
-        </Box>
-      </Paper>
+      {card}
     </Box>
   );
 };

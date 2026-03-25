@@ -1,31 +1,62 @@
 # Rubrix
 
-Rubrix is a Microsoft Word add-in for educators with AI-assisted feedback workflows:
+Rubrix is a Microsoft Word add-in for educators with AI-assisted writing, grading, and detection workflows.
 
-- AI Comments
-- AI Grade Paper (with saved rubrics + grading controls)
-- AI Detector (Winston AI-content detection with highlighted passages)
-- Plagiarism Detector (Winston source matching)
+## What This Build Includes
 
-## Product Changes Included
+- Landing page always visible first.
+- Top-right `Login / Sign up` CTA when signed out.
+- Feature actions blocked until authentication.
+- Supabase auth providers:
+  - Email magic link
+  - Google
+  - Microsoft (Azure)
+  - Facebook
+- Usage tracker UI (words left this month) in header/menu and landing.
+- Plan-aware feature gating + usage enforcement in app actions.
+- Stripe test-mode checkout endpoint + webhook scaffold.
+- Supabase-compatible SQL migration for billing plans, subscriptions, top-ups, and usage ledger.
 
-- Removed the legacy `Reference Check citations` feature and related code.
-- Added authenticated access gate (Supabase auth required before use).
-- Added top-right account menu and billing/settings dialog.
-- Added Stripe billing scaffolding:
-  - 30-day free trial, no card required to sign up
-  - $0.99 monthly or $0.99 yearly auto-renew plan options
-  - discount/free membership code input
-- Renamed UI/product identity to `Rubrix`.
+## Billing Model Implemented
 
-## Tech Stack
+### Trial
 
-- Office Add-in (Word task pane)
-- React + Material UI
-- Gemini API (`@google/genai`) for grading/comments
-- Winston API (via Vercel serverless routes) for AI detection/plagiarism
-- Supabase Auth (REST integration)
-- Stripe checkout integration scaffold (env-driven)
+- Trial unlocks all features up to **10,000 words** total.
+- After trial words are exhausted, subscription is required.
+
+### Plans
+
+| Plan | Monthly | Annual (20% off) | Capacity | AI Detector | Plagiarism |
+|---|---:|---:|---:|---|---|
+| Basic | $13.99 | $134.30 | 200,000 words/month | No | No |
+| Plus | $19.99 | $191.90 | 200,000 words/month | Yes | No |
+| 360 | $44.99 | $431.90 | 200,000 words/month | Yes | Yes |
+| Basic HD | $29.99 | $287.90 | 2,000,000 words/month | No | No |
+| Plus HD | $59.99 | $575.90 | 2,000,000 words/month | Yes | No |
+| 360 HD | $119.99 | $1,151.90 | 2,000,000 words/month | Yes | Yes |
+
+Feature access by plan:
+- Basic/Basic HD: comments + grade paper + writing assist
+- Plus/Plus HD: Basic features + AI detector
+- 360/360 HD: Plus features + plagiarism
+
+### Top-ups (No Rollover)
+
+- Each pack = **50,000 words** (25 essays x 2,000 words).
+- Top-up categories:
+  - Grading/Writing top-up
+  - AI detection top-up
+  - Plagiarism top-up
+
+## Project Structure
+
+- Frontend app: `src/taskpane/*`
+- Winston proxy APIs: `api/winston/*`
+- Stripe APIs:
+  - `api/stripe/checkout.js`
+  - `api/stripe/webhook.js`
+- Supabase migration:
+  - `supabase/migrations/20260324093000_auth_billing_usage.sql`
 
 ## Local Setup
 
@@ -35,79 +66,71 @@ Rubrix is a Microsoft Word add-in for educators with AI-assisted feedback workfl
 npm install
 ```
 
-2. Copy env template and configure:
+2. Copy env template:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Start dev server:
+3. Configure `.env` values.
+
+4. Start dev server:
 
 ```bash
 npm run dev-server
 ```
 
-4. Build for production:
+5. Build:
 
 ```bash
 npm run build
 ```
 
-## Environment Variables
+## Required Environment Variables
 
-Create `.env` with:
+See `.env.example` for the complete list. Key groups:
 
-| Variable | Required | Description |
-|---|---|---|
-| `API_KEY` | Yes | Gemini API key for AI comments and AI Grade Paper |
-| `WINSTON_API_KEY` | Yes | Winston API key used by `/api/winston/ai-content-detection` and `/api/winston/plagiarism` |
-| `SUPABASE_URL` | Yes | Supabase project URL |
-| `SUPABASE_PUBLISHABLE_KEY` | Yes | Supabase publishable (anon) key |
-| `SUPABASE_AUTH_REDIRECT_URL` | Recommended | OAuth/magic-link redirect URL (usually your deployed `taskpane.html`) |
-| `STRIPE_CHECKOUT_ENDPOINT` | Optional | Backend endpoint to create Stripe Checkout sessions |
-| `STRIPE_MONTHLY_CHECKOUT_URL` | Optional | Direct monthly checkout URL fallback |
-| `STRIPE_YEARLY_CHECKOUT_URL` | Optional | Direct yearly checkout URL fallback |
-| `FREE_MEMBERSHIP_CODES` | Optional | Comma-separated free membership codes |
+- AI providers: `API_KEY`, `WINSTON_API_KEY`
+- Supabase: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_AUTH_REDIRECT_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- Stripe:
+  - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+  - `STRIPE_PRICE_*` for all plans and top-ups
+  - Optional checkout URL fallbacks
 
-## Supabase Auth Configuration
+## Supabase Setup
 
-Configured defaults:
+1. Run the migration in `supabase/migrations/20260324093000_auth_billing_usage.sql`.
+2. In Supabase Auth provider settings, enable:
+   - Google
+   - Azure (Microsoft)
+   - Facebook
+   - Email
+3. Add redirect URLs such as:
+   - `https://your-domain.com/taskpane.html`
+   - `https://localhost:3000/taskpane.html`
 
-- URL: `https://zlgrzxvwyilvcnzocrrk.supabase.co`
-- Publishable key: `sb_publishable_-x3VIM-IJWU3VN-PE1hN9Q_rFZUeKMz`
+## Stripe Setup (Test Mode)
 
-Enable these providers in Supabase Auth settings:
-
-- Google
-- Azure (Microsoft)
-- Email
-
-Set redirect URL(s) to your add-in task pane URL, e.g.:
-
-- `https://rubrix-3-saas.vercel.app/taskpane.html`
-- `https://localhost:3000/taskpane.html` (for local dev)
-
-## Stripe Billing Scaffold
-
-The billing UI supports:
-
-- trial state tracking
-- monthly/yearly checkout triggers
-- free code redemption
-
-For production, wire one of:
-
-1. `STRIPE_CHECKOUT_ENDPOINT` (recommended backend flow)
-2. `STRIPE_MONTHLY_CHECKOUT_URL` + `STRIPE_YEARLY_CHECKOUT_URL` (direct URL fallback)
-
-## Word Sideload
-
-Use `rubrix3-manifest.xml` and follow [SIDELOAD-README.md](./SIDELOAD-README.md).
+1. Create recurring prices for all six plans (monthly + annual).
+2. Create one-time prices for three top-up SKUs.
+3. Set all corresponding `STRIPE_PRICE_*` env vars.
+4. Configure webhook endpoint:
+   - `https://your-domain.com/api/stripe/webhook`
+5. Subscribe webhook to:
+   - `checkout.session.completed`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.paid`
+   - `invoice.payment_failed`
 
 ## Deployment
 
-The project includes `vercel.json` and production URLs configured for:
+- Build output: `dist`
+- Vercel config: `vercel.json`
+- Deploy command (if Vercel CLI is authenticated):
 
-- `https://rubrix-3-saas.vercel.app`
+```bash
+vercel --prod
+```
 
-After deployment, ensure manifest URLs and Supabase redirect URLs match your live domain.

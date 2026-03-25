@@ -1,4 +1,4 @@
-export type OAuthProvider = "google" | "azure";
+export type OAuthProvider = "google" | "azure" | "facebook";
 
 export interface SupabaseUser {
   id: string;
