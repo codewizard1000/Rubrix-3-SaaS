@@ -20,7 +20,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from "../../context/AuthContext";
 import BillingDialog from "./BillingDialog";
 import AuthGate from "./AuthGate";
-import { formatPlanName, getUsageSummary } from "../../Services/billing";
+import { formatPlanName, getUsageSummary, UsageSummary } from "../../Services/billing";
+import UsageMeter, { getUsageWarningLevel } from "./UsageMeter";
 
 const AccountMenu: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -29,11 +30,13 @@ const AccountMenu: React.FC = () => {
   const [authOpen, setAuthOpen] = React.useState(false);
   const [wordsLeft, setWordsLeft] = React.useState<number>(0);
   const [planLabel, setPlanLabel] = React.useState<string>("Trial");
+  const [usageSummary, setUsageSummary] = React.useState<UsageSummary | null>(null);
 
   React.useEffect(() => {
     if (!user?.id) {
       setWordsLeft(0);
       setPlanLabel("Trial");
+      setUsageSummary(null);
       return undefined;
     }
 
@@ -41,6 +44,7 @@ const AccountMenu: React.FC = () => {
       const summary = getUsageSummary(user.id);
       setWordsLeft(summary.monthlyBaseWordsLeft);
       setPlanLabel(formatPlanName(summary.planId));
+      setUsageSummary(summary);
     };
 
     refresh();
@@ -94,6 +98,18 @@ const AccountMenu: React.FC = () => {
     (typeof user.user_metadata?.name === "string" && user.user_metadata.name) ||
     user.email ||
     "Account";
+  const warningLevel = usageSummary ? getUsageWarningLevel(usageSummary) : "none";
+  const wordsChipStyle =
+    warningLevel === "critical"
+      ? { backgroundColor: "#fee2e2", border: "1px solid #dc2626" }
+      : warningLevel === "warning"
+      ? { backgroundColor: "#fef3c7", border: "1px solid #d97706" }
+      : warningLevel === "info"
+      ? { backgroundColor: "#e0f2fe", border: "1px solid #0284c7" }
+      : {
+          backgroundColor: "rgba(255,255,255,0.95)",
+          border: "1px solid rgba(148, 163, 184, 0.55)",
+        };
 
   return (
     <>
@@ -127,8 +143,7 @@ const AccountMenu: React.FC = () => {
           label={`${wordsLeft.toLocaleString()} words left`}
           sx={{
             fontWeight: 700,
-            backgroundColor: "rgba(255,255,255,0.95)",
-            border: "1px solid rgba(148, 163, 184, 0.55)",
+            ...wordsChipStyle,
           }}
         />
       </Box>
@@ -154,6 +169,16 @@ const AccountMenu: React.FC = () => {
           </Box>
         </MenuItem>
         <Divider />
+        {usageSummary && (
+          <>
+            <MenuItem disableRipple sx={{ cursor: "default", "&:hover": { backgroundColor: "transparent" } }}>
+              <Box sx={{ width: 290 }}>
+                <UsageMeter summary={usageSummary} compact />
+              </Box>
+            </MenuItem>
+            <Divider />
+          </>
+        )}
         <MenuItem
           onClick={() => {
             setAnchorEl(null);

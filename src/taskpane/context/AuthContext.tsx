@@ -6,6 +6,8 @@ import {
   extractSessionFromUrlHash,
   fetchSupabaseUser,
   getStoredSession,
+  isEmailAuthEnabled,
+  isOAuthProviderEnabled,
   isSessionExpiring,
   refreshSupabaseSession,
   sendMagicLinkEmail,
@@ -20,6 +22,12 @@ interface AuthContextValue {
   user: SupabaseUser | null;
   loading: boolean;
   error: string | null;
+  authProviderEnabled: {
+    email: boolean;
+    google: boolean;
+    microsoft: boolean;
+    facebook: boolean;
+  };
   signInWithGoogle: () => void;
   signInWithMicrosoft: () => void;
   signInWithFacebook: () => void;
@@ -35,6 +43,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = React.useState<SupabaseUser | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const authProviderEnabled = React.useMemo(
+    () => ({
+      email: isEmailAuthEnabled(),
+      google: isOAuthProviderEnabled("google"),
+      microsoft: isOAuthProviderEnabled("azure"),
+      facebook: isOAuthProviderEnabled("facebook"),
+    }),
+    []
+  );
 
   const applySession = React.useCallback((nextSession: SupabaseSession | null) => {
     if (!nextSession) {
@@ -118,18 +135,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [session, applySession]);
 
   const signInWithGoogle = () => {
-    startOAuthLogin("google");
+    setError(null);
+    const result = startOAuthLogin("google");
+    if (!result.ok) {
+      setError(result.error || "Google sign-in is unavailable.");
+    }
   };
 
   const signInWithMicrosoft = () => {
-    startOAuthLogin("azure");
+    setError(null);
+    const result = startOAuthLogin("azure");
+    if (!result.ok) {
+      setError(result.error || "Microsoft sign-in is unavailable.");
+    }
   };
 
   const signInWithFacebook = () => {
-    startOAuthLogin("facebook");
+    setError(null);
+    const result = startOAuthLogin("facebook");
+    if (!result.ok) {
+      setError(result.error || "Facebook sign-in is unavailable.");
+    }
   };
 
   const sendMagicLink = async (email: string) => {
+    setError(null);
     const result = await sendMagicLinkEmail(email);
     if (result.error) {
       setError(result.error);
@@ -156,6 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     loading,
     error,
+    authProviderEnabled,
     signInWithGoogle,
     signInWithMicrosoft,
     signInWithFacebook,

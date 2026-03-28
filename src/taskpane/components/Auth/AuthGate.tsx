@@ -25,10 +25,34 @@ interface AuthGateProps {
 }
 
 const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
-  const { signInWithGoogle, signInWithMicrosoft, signInWithFacebook, sendMagicLink, error, clearError } = useAuth();
+  const {
+    signInWithGoogle,
+    signInWithMicrosoft,
+    signInWithFacebook,
+    sendMagicLink,
+    error,
+    clearError,
+    authProviderEnabled,
+  } = useAuth();
   const [email, setEmail] = React.useState("");
   const [emailInfo, setEmailInfo] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const disabledProviders = React.useMemo(() => {
+    const providers: string[] = [];
+    if (!authProviderEnabled.email) {
+      providers.push("Email");
+    }
+    if (!authProviderEnabled.google) {
+      providers.push("Google");
+    }
+    if (!authProviderEnabled.microsoft) {
+      providers.push("Microsoft");
+    }
+    if (!authProviderEnabled.facebook) {
+      providers.push("Facebook");
+    }
+    return providers;
+  }, [authProviderEnabled]);
 
   const handleSendMagicLink = async () => {
     clearError();
@@ -80,6 +104,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
           variant="contained"
           startIcon={<GoogleIcon />}
           onClick={signInWithGoogle}
+          disabled={!authProviderEnabled.google}
           sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
         >
           Continue with Google
@@ -89,6 +114,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
           variant="outlined"
           startIcon={<MicrosoftIcon />}
           onClick={signInWithMicrosoft}
+          disabled={!authProviderEnabled.microsoft}
           sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
         >
           Continue with Microsoft
@@ -98,6 +124,7 @@ const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
           variant="outlined"
           startIcon={<FacebookIcon />}
           onClick={signInWithFacebook}
+          disabled={!authProviderEnabled.facebook}
           sx={{ textTransform: "none", borderRadius: 2, py: 1.1 }}
         >
           Continue with Facebook
@@ -114,12 +141,13 @@ const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="name@school.edu"
+          disabled={!authProviderEnabled.email}
         />
         <Button
           variant="outlined"
           startIcon={submitting ? <CircularProgress size={16} /> : <MailOutlineIcon />}
           onClick={handleSendMagicLink}
-          disabled={submitting}
+          disabled={submitting || !authProviderEnabled.email}
           sx={{ textTransform: "none", borderRadius: 2, py: 1.05 }}
         >
           Send email sign-in link
@@ -135,6 +163,12 @@ const AuthGate: React.FC<AuthGateProps> = ({ embedded = false }) => {
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
+        </Alert>
+      )}
+
+      {disabledProviders.length > 0 && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          Disabled in this environment: {disabledProviders.join(", ")}.
         </Alert>
       )}
 

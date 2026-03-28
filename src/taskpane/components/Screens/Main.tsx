@@ -10,7 +10,8 @@ import EditNoteIcon from "@mui/icons-material/EditNote";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { useAuth } from "../../context/AuthContext";
 import Toast from "../Toast/ToastMessage";
-import { formatPlanName, getUsageSummary } from "../../Services/billing";
+import { getUsageSummary, UsageSummary } from "../../Services/billing";
+import UsageMeter from "../Auth/UsageMeter";
 
 type FeatureKey = "create" | "feedback" | "level";
 
@@ -54,19 +55,17 @@ export default function TeacherToolsGrid() {
   const { user } = useAuth();
   const [hover, setHover] = React.useState(false);
   const [authInfo, setAuthInfo] = React.useState<string | null>(null);
-  const [usageLine, setUsageLine] = React.useState<string | null>(null);
+  const [usageSummary, setUsageSummary] = React.useState<UsageSummary | null>(null);
 
   React.useEffect(() => {
     if (!user?.id) {
-      setUsageLine(null);
+      setUsageSummary(null);
       return undefined;
     }
 
     const refresh = () => {
       const summary = getUsageSummary(user.id);
-      setUsageLine(
-        `${formatPlanName(summary.planId)} • ${summary.monthlyBaseWordsLeft.toLocaleString()} words left this month`
-      );
+      setUsageSummary(summary);
     };
 
     refresh();
@@ -248,22 +247,19 @@ export default function TeacherToolsGrid() {
               Explore the landing page first, then use top-right Login / Sign up to unlock tools.
             </Typography>
           )}
-          {usageLine && (
+          {usageSummary && (
             <Paper
               variant="outlined"
               sx={{
                 mt: 1.2,
-                py: 0.8,
                 px: 1.2,
+                py: 1,
                 borderRadius: 2,
-                textAlign: "center",
                 borderColor: "#cbd5e1",
                 backgroundColor: "#f8fafc",
               }}
             >
-              <Typography variant="caption" sx={{ color: "#0f172a", fontWeight: 700 }}>
-                {usageLine}
-              </Typography>
+              <UsageMeter summary={usageSummary} />
             </Paper>
           )}
         </Box>

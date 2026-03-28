@@ -12,7 +12,9 @@ Rubrix is a Microsoft Word add-in for educators with AI-assisted writing, gradin
   - Google
   - Microsoft (Azure)
   - Facebook
+- Optional provider guards via env flags so unavailable providers are disabled in UI.
 - Usage tracker UI (words left this month) in header/menu and landing.
+- Usage meter with near-limit warnings (info/warning/critical thresholds).
 - Plan-aware feature gating + usage enforcement in app actions.
 - Stripe test-mode checkout endpoint + webhook scaffold.
 - Supabase-compatible SQL migration for billing plans, subscriptions, top-ups, and usage ledger.
@@ -92,6 +94,7 @@ See `.env.example` for the complete list. Key groups:
 
 - AI providers: `API_KEY`, `WINSTON_API_KEY`
 - Supabase: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_AUTH_REDIRECT_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+  - Optional provider guards: `SUPABASE_AUTH_ENABLED_PROVIDERS`, `SUPABASE_AUTH_ENABLE_*`
 - Stripe:
   - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
   - `STRIPE_PRICE_*` for all plans and top-ups
@@ -133,4 +136,3 @@ See `.env.example` for the complete list. Key groups:
 ```bash
 vercel --prod
 ```
-

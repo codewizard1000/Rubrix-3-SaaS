@@ -31,6 +31,7 @@ import {
   startStripeCheckout,
   UsageSummary,
 } from "../../Services/billing";
+import UsageMeter from "./UsageMeter";
 
 interface BillingDialogProps {
   open: boolean;
@@ -137,6 +138,9 @@ const BillingDialog: React.FC<BillingDialogProps> = ({ open, onClose, userId, em
               Monthly base usage: {usageSummary.monthlyBaseWordsUsed.toLocaleString()} /{" "}
               {usageSummary.monthlyBaseCapacity.toLocaleString()} words.
             </Typography>
+            <Box sx={{ mt: 1 }}>
+              <UsageMeter summary={usageSummary} compact />
+            </Box>
           </Paper>
 
           <Paper variant="outlined" sx={{ p: 1.3, borderRadius: 2 }}>
@@ -255,4 +259,3 @@ const BillingDialog: React.FC<BillingDialogProps> = ({ open, onClose, userId, em
 };
 
 export default BillingDialog;
-

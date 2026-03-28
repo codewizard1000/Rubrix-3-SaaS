@@ -1,4 +1,5 @@
 export type OAuthProvider = "google" | "azure" | "facebook";
+type AuthProvider = OAuthProvider | "email";
 
 export interface SupabaseUser {
   id: string;
@@ -17,14 +18,101 @@ export interface SupabaseSession {
 
 const DEFAULT_SUPABASE_URL = "https://zlgrzxvwyilvcnzocrrk.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_-x3VIM-IJWU3VN-PE1hN9Q_rFZUeKMz";
+const DEFAULT_ENABLED_AUTH_PROVIDERS: AuthProvider[] = ["email", "google", "azure", "facebook"];
+const AUTH_PROVIDER_LABELS: Record<AuthProvider, string> = {
+  email: "Email",
+  google: "Google",
+  azure: "Microsoft",
+  facebook: "Facebook",
+};
 
 const SESSION_STORAGE_KEY = "rubrix3saas.supabase.session";
+
+const parseBooleanEnv = (value: string | undefined): boolean | null => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+};
+
+const normalizeAuthProvider = (value: string): AuthProvider | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "email") {
+    return "email";
+  }
+
+  if (normalized === "google") {
+    return "google";
+  }
+
+  if (normalized === "azure" || normalized === "microsoft") {
+    return "azure";
+  }
+
+  if (normalized === "facebook") {
+    return "facebook";
+  }
+
+  return null;
+};
+
+const getEnabledAuthProviders = (): Set<AuthProvider> => {
+  const providerListEnv = process.env.SUPABASE_AUTH_ENABLED_PROVIDERS;
+  if (typeof providerListEnv === "string" && providerListEnv.trim().length > 0) {
+    const parsed = providerListEnv
+      .split(",")
+      .map(normalizeAuthProvider)
+      .filter((provider): provider is AuthProvider => provider !== null);
+
+    if (parsed.length > 0) {
+      return new Set(parsed);
+    }
+  }
+
+  const enabled = new Set<AuthProvider>(DEFAULT_ENABLED_AUTH_PROVIDERS);
+
+  const envOverrides: Array<{ env: string | undefined; provider: AuthProvider }> = [
+    { env: process.env.SUPABASE_AUTH_ENABLE_EMAIL, provider: "email" },
+    { env: process.env.SUPABASE_AUTH_ENABLE_GOOGLE, provider: "google" },
+    { env: process.env.SUPABASE_AUTH_ENABLE_MICROSOFT, provider: "azure" },
+    { env: process.env.SUPABASE_AUTH_ENABLE_FACEBOOK, provider: "facebook" },
+  ];
+
+  envOverrides.forEach(({ env, provider }) => {
+    const parsed = parseBooleanEnv(env);
+    if (parsed === null) {
+      return;
+    }
+
+    if (parsed) {
+      enabled.add(provider);
+    } else {
+      enabled.delete(provider);
+    }
+  });
+
+  return enabled;
+};
 
 export const getSupabaseUrl = (): string =>
   process.env.SUPABASE_URL || DEFAULT_SUPABASE_URL;
 
 export const getSupabasePublishableKey = (): string =>
   process.env.SUPABASE_PUBLISHABLE_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+
+export const isEmailAuthEnabled = (): boolean => getEnabledAuthProviders().has("email");
+
+export const isOAuthProviderEnabled = (provider: OAuthProvider): boolean => getEnabledAuthProviders().has(provider);
 
 const getAuthHeaders = (accessToken?: string): Record<string, string> => {
   const headers: Record<string, string> = {
@@ -92,15 +180,27 @@ export const getRedirectUrl = (): string => {
   return `${window.location.origin}${window.location.pathname}`;
 };
 
-export const startOAuthLogin = (provider: OAuthProvider) => {
+export const startOAuthLogin = (provider: OAuthProvider): { ok: boolean; error?: string } => {
+  if (!isOAuthProviderEnabled(provider)) {
+    return {
+      ok: false,
+      error: `${AUTH_PROVIDER_LABELS[provider]} sign-in is disabled in this environment.`,
+    };
+  }
+
   const authUrl = new URL(`${getSupabaseUrl()}/auth/v1/authorize`);
   authUrl.searchParams.set("provider", provider);
   authUrl.searchParams.set("redirect_to", getRedirectUrl());
 
   window.location.assign(authUrl.toString());
+  return { ok: true };
 };
 
 export const sendMagicLinkEmail = async (email: string): Promise<{ error?: string }> => {
+  if (!isEmailAuthEnabled()) {
+    return { error: `${AUTH_PROVIDER_LABELS.email} sign-in is disabled in this environment.` };
+  }
+
   try {
     const response = await fetch(`${getSupabaseUrl()}/auth/v1/otp`, {
       method: "POST",
